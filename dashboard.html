@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chartly - Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="backend/static/css/advanced.css">
+</head>
+<body>
+  <!-- Animated Mesh Gradient Background -->
+  <div class="mesh-gradient-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <div class="flex h-screen relative z-10">
+    <!-- Sidebar Overlay (mobile) -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar-glass w-64 flex flex-col lg:static inset-y-0 left-0" id="sidebar">
+      <!-- Logo -->
+      <div class="p-5 border-b" style="border-color: rgba(255,255,255,0.06);">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, var(--primary), var(--primary-hover)); box-shadow: 0 8px 24px var(--primary-glow);">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold text-white" style="font-family: var(--font-heading);">Chartly</h1>
+            <p class="text-xs" style="color: var(--sidebar-text);">Data Analysis</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search Trigger -->
+      <div class="px-4 pt-4">
+        <button onclick="openCommandPalette()" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all" style="background: rgba(255,255,255,0.05); color: var(--sidebar-text); border: 1px solid rgba(255,255,255,0.06);">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          <span class="flex-1 text-left">Search...</span>
+          <span class="text-xs px-1.5 py-0.5 rounded" style="background: rgba(255,255,255,0.08); font-family: monospace;">Ctrl+K</span>
+        </button>
+      </div>
+
+      <!-- Navigation -->
+      <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
+        <a href="dashboard.html" class="nav-item-premium active">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+          <span>Dashboard</span>
+        </a>
+        <a href="upload.html" class="nav-item-premium">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+          <span>Upload Data</span>
+        </a>
+        <a href="charts.html" class="nav-item-premium">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+          <span>Charts</span>
+        </a>
+        <a href="templates.html" class="nav-item-premium">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+          <span>Templates</span>
+        </a>
+        <a href="audit.html" class="nav-item-premium">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span>Audit Trail</span>
+        </a>
+        <a href="users.html" class="nav-item-premium">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+          <span>Users</span>
+        </a>
+        <a href="settings.html" class="nav-item-premium">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+          <span>Settings</span>
+        </a>
+      </nav>
+
+      <!-- User Profile -->
+      <div class="p-4 border-t" style="border-color: rgba(255,255,255,0.06);">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--accent), var(--accent-hover));">
+              <span class="text-sm font-bold text-white">A</span>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-white">Analyst</p>
+              <p class="text-xs" style="color: var(--sidebar-text);">analyst@company.com</p>
+            </div>
+          </div>
+          <a href="index.html" class="p-2 rounded-lg transition-all" style="color: var(--sidebar-text);" onmouseover="this.style.color='var(--accent)';this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.color='var(--sidebar-text)';this.style.background='transparent'">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+          </a>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-auto">
+      <!-- Mobile Header -->
+      <div class="lg:hidden mobile-header-glass flex items-center gap-4 p-4">
+        <button onclick="toggleSidebar()" class="p-2 rounded-lg" style="color: var(--text);">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </button>
+        <span class="font-bold" style="font-family: var(--font-heading);">Chartly</span>
+      </div>
+
+      <div class="p-6 lg:p-8">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-6 animate-fadeInUp">
+          <div>
+            <h1 class="text-2xl lg:text-3xl font-extrabold" style="font-family: var(--font-heading); color: var(--text);">Dashboard</h1>
+            <p class="mt-1 text-sm" style="color: var(--text-secondary);">Welcome back. Here's an overview of your analysis workspace.</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <!-- Dark Mode Toggle -->
+            <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">
+              <div class="toggle-thumb">
+                <svg class="toggle-icon-sun" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                <svg class="toggle-icon-moon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <!-- Datasets -->
+          <div class="stat-card-premium animate-fadeInUp delay-1">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="stat-label">Datasets</p>
+                <p class="stat-value count-up" data-target="12">0</p>
+                <p class="text-xs mt-2 flex items-center gap-1" style="color: var(--success);">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+                  +2 this month
+                </p>
+              </div>
+              <div class="stat-icon-wrap" style="background: rgba(0, 184, 148, 0.12);">
+                <svg class="w-6 h-6" style="color: var(--primary);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Charts Created -->
+          <div class="stat-card-premium animate-fadeInUp delay-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="stat-label">Charts Created</p>
+                <p class="stat-value count-up" data-target="48">0</p>
+                <p class="text-xs mt-2 flex items-center gap-1" style="color: var(--success);">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+                  +8 this week
+                </p>
+              </div>
+              <div class="stat-icon-wrap" style="background: rgba(9, 132, 227, 0.12);">
+                <svg class="w-6 h-6" style="color: var(--secondary);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Templates -->
+          <div class="stat-card-premium animate-fadeInUp delay-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="stat-label">Templates</p>
+                <p class="stat-value count-up" data-target="15">0</p>
+                <p class="text-xs mt-2 flex items-center gap-1" style="color: var(--accent);">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+                  +3 new
+                </p>
+              </div>
+              <div class="stat-icon-wrap" style="background: rgba(108, 92, 231, 0.12);">
+                <svg class="w-6 h-6" style="color: #6c5ce7;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- This Week -->
+          <div class="stat-card-premium animate-fadeInUp delay-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="stat-label">This Week</p>
+                <p class="stat-value count-up" data-target="24">0</p>
+                <p class="text-xs mt-2 flex items-center gap-1" style="color: var(--success);">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+                  +12% vs last week
+                </p>
+              </div>
+              <div class="stat-icon-wrap" style="background: rgba(225, 112, 85, 0.12);">
+                <svg class="w-6 h-6" style="color: var(--accent);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="mb-6">
+          <h2 class="text-base font-bold mb-3 animate-fadeInUp" style="font-family: var(--font-heading); color: var(--text);">Quick Actions</h2>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Upload Data -->
+            <a href="upload.html" class="action-card-premium animate-fadeInUp delay-2">
+              <div class="action-icon-wrap" style="background: linear-gradient(135deg, var(--secondary), var(--secondary-hover));">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+              </div>
+              <h3 class="font-bold" style="color: var(--text); font-family: var(--font-heading);">Upload Data</h3>
+              <p class="text-sm mt-1" style="color: var(--text-secondary);">Import a CSV or Excel file to get started</p>
+              <div class="arrow-icon">
+                <svg class="w-5 h-5" style="color: var(--primary);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+              </div>
+            </a>
+
+            <!-- Create Chart -->
+            <a href="charts.html" class="action-card-premium animate-fadeInUp delay-3">
+              <div class="action-icon-wrap" style="background: linear-gradient(135deg, var(--primary), var(--primary-hover));">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+              </div>
+              <h3 class="font-bold" style="color: var(--text); font-family: var(--font-heading);">Create Chart</h3>
+              <p class="text-sm mt-1" style="color: var(--text-secondary);">Build a chart from an existing dataset</p>
+              <div class="arrow-icon">
+                <svg class="w-5 h-5" style="color: var(--primary);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+              </div>
+            </a>
+
+            <!-- Browse Templates -->
+            <a href="templates.html" class="action-card-premium animate-fadeInUp delay-4">
+              <div class="action-icon-wrap" style="background: linear-gradient(135deg, var(--accent), var(--accent-hover));">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+              </div>
+              <h3 class="font-bold" style="color: var(--text); font-family: var(--font-heading);">Browse Templates</h3>
+              <p class="text-sm mt-1" style="color: var(--text-secondary);">Use a saved template for quick analysis</p>
+              <div class="arrow-icon">
+                <svg class="w-5 h-5" style="color: var(--primary);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+              </div>
+            </a>
+          </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="glass rounded-2xl p-5 animate-fadeInUp delay-5" style="border-radius: 20px;">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <div class="p-2 rounded-xl" style="background: rgba(225, 112, 85, 0.12);">
+                <svg class="w-5 h-5" style="color: var(--accent);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+              </div>
+              <h2 class="text-base font-bold" style="font-family: var(--font-heading); color: var(--text);">Recent Activity</h2>
+            </div>
+            <a href="audit.html" class="text-xs font-semibold" style="color: var(--primary);">View all</a>
+          </div>
+
+          <div>
+            <!-- Activity 1 -->
+            <div class="activity-item-premium">
+              <div class="p-2 rounded-lg" style="background: rgba(230, 126, 34, 0.12);">
+                <svg class="w-4 h-4" style="color: var(--primary);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold" style="color: var(--text);">New dataset uploaded</p>
+                <p class="text-xs truncate" style="color: var(--text-secondary);">sales_data_2024.csv</p>
+              </div>
+              <div class="flex items-center gap-1 text-xs" style="color: var(--text-muted);">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                5 min ago
+              </div>
+            </div>
+
+            <!-- Activity 2 -->
+            <div class="activity-item-premium">
+              <div class="p-2 rounded-lg" style="background: rgba(243, 156, 18, 0.12);">
+                <svg class="w-4 h-4" style="color: var(--secondary);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold" style="color: var(--text);">Chart generated</p>
+                <p class="text-xs truncate" style="color: var(--text-secondary);">Revenue by Region</p>
+              </div>
+              <div class="flex items-center gap-1 text-xs" style="color: var(--text-muted);">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                1 hour ago
+              </div>
+            </div>
+
+            <!-- Activity 3 -->
+            <div class="activity-item-premium">
+              <div class="p-2 rounded-lg" style="background: rgba(231, 76, 60, 0.12);">
+                <svg class="w-4 h-4" style="color: var(--accent);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold" style="color: var(--text);">Template saved</p>
+                <p class="text-xs truncate" style="color: var(--text-secondary);">Monthly Sales Report</p>
+              </div>
+              <div class="flex items-center gap-1 text-xs" style="color: var(--text-muted);">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                2 hours ago
+              </div>
+            </div>
+
+            <!-- Activity 4 -->
+            <div class="activity-item-premium">
+              <div class="p-2 rounded-lg" style="background: rgba(39, 174, 96, 0.12);">
+                <svg class="w-4 h-4" style="color: var(--success);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold" style="color: var(--text);">New user added</p>
+                <p class="text-xs truncate" style="color: var(--text-secondary);">analyst@company.com</p>
+              </div>
+              <div class="flex items-center gap-1 text-xs" style="color: var(--text-muted);">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                3 hours ago
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Command Palette -->
+  <div class="command-overlay" id="commandPalette" onclick="if(event.target===this)closeCommandPalette()">
+    <div class="command-modal">
+      <div class="command-input-wrap">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        <input type="text" class="command-input" placeholder="Search pages, actions..." id="commandInput" oninput="filterCommands(this.value)">
+        <span class="command-kbd">ESC</span>
+      </div>
+      <div class="command-results" id="commandResults">
+        <a href="dashboard.html" class="command-item">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+          <div>
+            <div class="command-item-label">Dashboard</div>
+            <div class="command-item-desc">Overview of your workspace</div>
+          </div>
+        </a>
+        <a href="upload.html" class="command-item">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+          <div>
+            <div class="command-item-label">Upload Data</div>
+            <div class="command-item-desc">Import CSV or Excel files</div>
+          </div>
+        </a>
+        <a href="charts.html" class="command-item">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+          <div>
+            <div class="command-item-label">Charts</div>
+            <div class="command-item-desc">View and manage charts</div>
+          </div>
+        </a>
+        <a href="templates.html" class="command-item">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+          <div>
+            <div class="command-item-label">Templates</div>
+            <div class="command-item-desc">Pre-built chart templates</div>
+          </div>
+        </a>
+        <a href="users.html" class="command-item">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+          <div>
+            <div class="command-item-label">Users</div>
+            <div class="command-item-desc">Manage user accounts</div>
+          </div>
+        </a>
+        <a href="settings.html" class="command-item">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+          <div>
+            <div class="command-item-label">Settings</div>
+            <div class="command-item-desc">Platform preferences</div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Theme
+    if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+    function toggleTheme() {
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    }
+
+    // Sidebar
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('sidebarOverlay').classList.toggle('open');
+    }
+
+    // Command Palette
+    function openCommandPalette() {
+      document.getElementById('commandPalette').classList.add('active');
+      setTimeout(() => document.getElementById('commandInput').focus(), 100);
+    }
+    function closeCommandPalette() {
+      document.getElementById('commandPalette').classList.remove('active');
+      document.getElementById('commandInput').value = '';
+      filterCommands('');
+    }
+    document.addEventListener('keydown', function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); openCommandPalette(); }
+      if (e.key === 'Escape') closeCommandPalette();
+    });
+    function filterCommands(query) {
+      const items = document.querySelectorAll('.command-item');
+      const q = query.toLowerCase();
+      items.forEach(item => {
+        const label = item.querySelector('.command-item-label').textContent.toLowerCase();
+        const desc = item.querySelector('.command-item-desc').textContent.toLowerCase();
+        item.style.display = (label.includes(q) || desc.includes(q)) ? 'flex' : 'none';
+      });
+    }
+
+    // Counter Animation
+    function animateCounters() {
+      document.querySelectorAll('.count-up').forEach(el => {
+        const target = parseInt(el.getAttribute('data-target'));
+        const duration = 1200;
+        const start = performance.now();
+        function update(now) {
+          const elapsed = now - start;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          el.textContent = Math.round(target * eased);
+          if (progress < 1) requestAnimationFrame(update);
+        }
+        requestAnimationFrame(update);
+      });
+    }
+    setTimeout(animateCounters, 400);
+
+    // Scroll Reveal
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('revealed');
+        }
+      });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  </script>
+</body>
+</html>

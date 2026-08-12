@@ -1,0 +1,31 @@
+راجع وصحّح المشاكل التالية في المشروع، بدون تغيير أي لون من الباليت الحالية (orange/red/amber warm sunset):
+
+## 1. إصلاحات حرجة (CSS)
+في backend/static/css/advanced.css سطر 241:
+- استبدل `-webkit-backdrop-filter: border(24px) saturate(150%)` بـ `-webkit-backdrop-filter: blur(24px) saturate(150%)`
+- تحقق من وجود نفس الخطأ في أي مكان آخر بالملف (grep عن "border(" داخل أي backdrop-filter)
+
+## 2. تناسق الألوان
+mesh gradient حالياً يستخدم ألوان teal/blue (rgba(0, 184, 148), rgba(9, 132, 227), rgba(108, 92, 231)) بينما باقي التطبيق warm sunset (orange/red/amber). 
+- بدّل قيم الـ RGB بألوان من نفس عائلة الباليت الأساسية المستخدمة بالمشروع (خذها من CSS variables الموجودة فعلاً، لا تخترع ألوان جديدة)
+- حافظ على نفس opacity ونفس positions، فقط غيّر الـ hue
+
+## 3. توحيد الـ sidebar عبر الصفحات
+الصفحات: charts.html, upload.html, settings.html, templates.html, users.html, audit.html
+مقارنة بـ dashboard.html (المرجع):
+- أضف search trigger button المفقود
+- أضف mobile overlay المفقود
+- استبدل أي لون hardcoded مثل #00a381 بـ var(--primary-hover) أو المتغير المطابق
+- تأكد إن بنية الـ HTML (order العناصر، classes، aria attributes) متطابقة تماماً مع dashboard.html، مو بس بصرياً متشابهة
+
+## 4. صفحة اللوجن (index.html)
+- افحص سبب وجود overflow: hidden على body، وإذا كان فقط لإخفاء حركة الميش غراديانت، بدّله بحل ما بمنع scroll عند الشاشات الصغيرة (مثلاً overflow-x: hidden بدل الاثنين)
+- وحّد استخدام mesh-gradient-login بدل الـ class المخصص mesh-bg-login، أو احذف الكلاس غير المستخدم من الـ CSS إذا مافي داعي له
+
+## معايير التصميم العامة (مهم)
+- لا تستخدم gradients مبالغ فيها أو ظلال قوية بشكل غير مبرر — التصميم يجب يبقى نظيف واحترافي مو "لامع" بشكل واضح إنه AI-generated
+- لا تضيف emoji داخل أي نص UI أو labels
+- التباعد (spacing) بين العناصر يجب يتبع نظام موجود مسبقاً بالمشروع (احترم الـ CSS variables للـ spacing إذا موجودة)، لا نظام رياضي جديد
+- الخطوط والـ typography تبقى كما هي، فقط تصليح لا إضافة
+
+بعد كل تعديل، اذكر الملف والسطر المتأثر بدون إعادة كتابة الكود كامل إلا إذا لزم الأمر.

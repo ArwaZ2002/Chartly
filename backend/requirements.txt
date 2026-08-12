@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+python-multipart
+sqlalchemy
+pandas
+openpyxl
+plotly
+pydantic
+pydantic-settings
+python-jose[cryptography]
+python-dotenv

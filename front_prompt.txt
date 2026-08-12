@@ -1,0 +1,60 @@
+Design a Frontend interface using HTML and CSS (Tailwind CSS is acceptable) 
+for a data analytics platform, with a modern and professional design 
+(Modern SaaS Dashboard Style).
+
+### Color Palette:
+- Orange — Primary color for buttons and interactive elements: #F97316 or #FB923C
+- Indigo — Secondary color for headings and highlights: #4F46E5 or #6366F1
+- Blue — Accent color for icons and status indicators: #3B82F6
+- Light neutral background: #F9FAFB or #F1F5F9 (Optional Dark mode: #0F172A)
+- Text colors: #111827 (headings) and #6B7280 (secondary text)
+
+### 1) Landing Page:
+- Very simple and clean (Minimal) design
+- Centered: platform name in large, bold text (Logo/Wordmark)
+- Optional short one-line tagline below it
+- Single button only: "Login" in a prominent orange color with a hover effect
+- Soft gradient background between indigo and blue
+- Clicking the button navigates directly to the login page (no extra fields on this page)
+
+### 2) Dashboard Page (dashboard/page.tsx):
+
+**a) Stats Cards (4 statistic widgets in a 4-column grid):**
+- Datasets (number of datasets) — database icon
+- Charts Created (number of charts created) — chart icon
+- Templates (number of templates) — layout icon
+- This Week (this week's activity) — calendar/trend icon
+Each card: colored icon inside a light circular background, large bold number, small label, and optionally a change percentage (e.g. +12%)
+
+**b) Quick Actions (3 quick-action cards):**
+- Upload Data
+- Create Chart
+- Browse Templates
+Clickable card design with a large icon and hover shadow effect
+
+**c) Recent Activity (activity feed section):**
+- A feed list of recent activity items: small icon + event text + timestamp (e.g. "New dataset uploaded - 5 minutes ago")
+- Each item on a white background with a subtle divider between items
+
+### 3) Sidebar (Sidebar.tsx):
+Vertical navigation list with icons + labels:
+- Dashboard
+- Upload Data
+- Charts
+- Templates
+- Audit Trail (admin only)
+- Users (admin only)
+- Settings (admin only)
+
+Sidebar properties:
+- Dark background (deep indigo) or clean white, depending on the overall style
+- Active state shown with a light orange background or an orange left border accent
+- Icons from a library such as Lucide or Heroicons
+- Platform logo at the top of the sidebar
+
+### Additional Technical Requirements:
+- Use Flexbox/Grid for layout (fully responsive)
+- Modern fonts (e.g. Inter or Poppins)
+- Soft border-radius (rounded-xl) and subtle shadows
+- Smooth transitions and hover effects on all interactive elements
+- Fully responsive/mobile-first design, with the sidebar collapsing into a dropdown/hamburger menu on mobile
