@@ -67,7 +67,7 @@ Open <http://localhost:8000> — a SQLite database is created automatically and 
 │   │   ├── core/             # Config & database
 │   │   ├── models/           # SQLAlchemy models & Pydantic schemas
 │   │   └── services/         # Chart generation & data profiling
-│   ├── static/               # Frontend (single-page app: index.html, app.js, style.css)
+│   ├── static/               # Frontend SPA: index.html, css/, js/ (router, api, views/, components/)
 │   ├── uploads/              # Uploaded dataset files (gitignored)
 │   └── requirements.txt
 ├── docs/                     # Business requirements documents
