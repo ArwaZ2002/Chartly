@@ -56,7 +56,7 @@ Open <http://localhost:8000> — a SQLite database is created automatically and 
 | Analyst | analyst@chartly.com    | analyst123  |
 | Viewer  | viewer@chartly.com     | viewer123   |
 
-> The UI itself does not enforce roles — API enforcement is the next priority.
+> Roles are enforced on both the API and the UI. Viewers can browse datasets, charts and templates; analysts (and admins) can upload, create, edit and delete; admins additionally manage users, settings and the audit trail.
 
 ## Project Structure
 
@@ -82,9 +82,13 @@ All endpoints live under `/api` (Swagger docs at <http://localhost:8000/docs>):
 |----------------|-----------|
 | Auth           | `POST /api/auth/login`, `GET /api/auth/me` |
 | Datasets       | `POST /api/datasets/upload`, `GET /api/datasets/`, `GET /api/datasets/{id}/preview`, `PATCH`, `DELETE` |
-| Charts         | `POST /api/charts/generate`, `GET /api/charts/recommendations/{dataset_id}`, `POST /api/charts/{id}/regenerate`, `POST /api/charts/{id}/restore/{version_id}`, `GET /api/charts/{id}/render` |
-| Templates      | `POST`, `GET`, `DELETE /api/templates/` |
-| Audit          | `GET /api/audit/` |
+| Charts         | `POST /api/charts/generate`, `GET /api/charts/recommendations/{dataset_id}`, `POST /api/charts/{id}/regenerate`, `POST /api/charts/{id}/restore/{version_id}`, `GET /api/charts/{id}/render`, `DELETE /api/charts/{id}` |
+| Templates      | `POST`, `GET`, `DELETE /api/templates/`, `POST /api/templates/apply` (validates against a dataset before reuse) |
+| Users (admin)  | `GET`, `POST /api/users/`, `PATCH`, `DELETE /api/users/{id}` |
+| Settings       | `GET`, `PUT /api/settings/` (platform name, default chart type) |
+| Audit (admin)  | `GET /api/audit/` |
+
+Every endpoint except `/auth/login` requires a `Bearer` token. Write actions require the analyst role (or admin); audit, user and settings management require admin.
 
 ## Documentation
 

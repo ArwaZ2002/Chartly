@@ -25,6 +25,19 @@ class TokenResponse(BaseModel):
     user: UserResponse
 
 
+class UserCreate(BaseModel):
+    name: str
+    email: str
+    password: str
+    role: str = "viewer"
+
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    role: Optional[str] = None
+    password: Optional[str] = None
+
+
 # Dataset
 class ColumnProfileResponse(BaseModel):
     name: str
@@ -91,6 +104,12 @@ class TemplateCreateRequest(BaseModel):
 class TemplateApplyRequest(BaseModel):
     template_id: str
     dataset_id: str
+
+
+class TemplateApplyResponse(BaseModel):
+    template_id: str
+    template_name: str
+    specification: ChartSpecification
 
 
 class TemplateResponse(BaseModel):

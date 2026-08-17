@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
@@ -8,6 +9,11 @@ from app.core.database import get_db
 from app.core.config import get_settings
 from app.models.models import User
 from app.models.schemas import UserLogin, UserResponse, TokenResponse
+
+router = APIRouter()
+settings = get_settings()
+
+security = HTTPBearer(auto_error=False)
 
 router = APIRouter()
 settings = get_settings()
@@ -34,14 +40,16 @@ def create_access_token(data: dict) -> str:
 
 def get_current_user(
     db: Session = Depends(get_db),
-    token: str = None,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
     )
+    if credentials is None:
+        raise credentials_exception
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(credentials.credentials, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
@@ -52,6 +60,17 @@ def get_current_user(
     if user is None:
         raise credentials_exception
     return user
+
+
+def require_role(*roles: str):
+    def dependency(current_user: User = Depends(get_current_user)) -> User:
+        if current_user.role not in roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+        return current_user
+    return dependency
 
 
 @router.post("/login", response_model=TokenResponse)

@@ -34,6 +34,23 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 def startup():
     init_db()
     _seed_default_user()
+    _seed_default_settings()
+
+
+def _seed_default_settings():
+    from app.core.database import SessionLocal
+    from app.models.models import Setting
+
+    db = SessionLocal()
+    try:
+        defaults = {"platform_name": "Chartly", "default_chart_type": "bar"}
+        for key, value in defaults.items():
+            existing = db.query(Setting).filter(Setting.key == key).first()
+            if not existing:
+                db.add(Setting(key=key, value=value))
+        db.commit()
+    finally:
+        db.close()
 
 
 def _seed_default_user():

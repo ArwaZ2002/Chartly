@@ -36,6 +36,7 @@ const ICONS = {
   pie: '<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>',
   eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
 };
 
 function icon(name, size = 18) {
@@ -221,11 +222,13 @@ const App = {
   renderSidebar(activeKey) {
     const nav = [
       { key: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
-      { key: 'upload', label: 'Upload Data', icon: 'upload' },
       { key: 'charts', label: 'Charts', icon: 'chart' },
       { key: 'templates', label: 'Templates', icon: 'template' },
     ];
-    if (this.user && this.user.role === 'admin') {
+    if (this.can('upload')) {
+      nav.splice(1, 0, { key: 'upload', label: 'Upload Data', icon: 'upload' });
+    }
+    if (this.can('admin')) {
       nav.push(
         { key: 'audit', label: 'Audit Trail', icon: 'audit' },
         { key: 'users', label: 'Users', icon: 'users' },
@@ -237,7 +240,7 @@ const App = {
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
           <div class="brand-mark">${icon('chart', 17)}</div>
-          <span class="brand-name">Chartly</span>
+          <span class="brand-name">${this.escapeHtml(this.platformName())}</span>
         </div>
         <nav class="sidebar-nav">
           <div class="nav-group-label">Menu</div>
@@ -293,6 +296,28 @@ const App = {
   auth() {
     if (!this.token) { location.hash = '#login'; return false; }
     return true;
+  },
+
+  /* -------- role-based UI -------- */
+  can(action) {
+    const role = this.user?.role;
+    if (!role) return false;
+    if (role === 'admin') return true;
+    if (action === 'view' || action === 'export') return true;
+    return role === 'analyst' && action !== 'admin';
+  },
+
+  settings: {},
+
+  async loadSettings() {
+    try {
+      this.settings = await this.apiFetch('/settings/');
+    } catch (_) { this.settings = {}; }
+    return this.settings;
+  },
+
+  platformName() {
+    return this.settings.platform_name || 'Chartly';
   },
 };
 
@@ -372,8 +397,8 @@ App.registerPage('#dashboard', async (app) => {
         <p class="subtitle">Here's what's happening in your analysis workspace.</p>
       </div>
       <div class="page-header-actions">
-        <a href="#upload" class="btn btn-secondary">${icon('upload', 16)} Upload Data</a>
-        <a href="#charts/new" class="btn btn-primary">${icon('plus', 16)} Create Chart</a>
+        ${App.can('upload') ? `<a href="#upload" class="btn btn-secondary">${icon('upload', 16)} Upload Data</a>` : ''}
+        ${App.can('create') ? `<a href="#charts/new" class="btn btn-primary">${icon('plus', 16)} Create Chart</a>` : ''}
       </div>
     </div>
 
@@ -386,16 +411,18 @@ App.registerPage('#dashboard', async (app) => {
 
     <div class="section-title" style="margin-top:4px;">Quick Actions</div>
     <div class="actions-grid">
+      ${App.can('upload') ? `
       <a href="#upload" class="action-card">
         <div class="action-icon indigo" style="background:var(--indigo-soft);color:var(--indigo);">${icon('upload', 20)}</div>
         <div class="action-body"><h4>Upload Data</h4><p>Import CSV or Excel files</p></div>
         <span class="action-arrow">${icon('chevron', 16)}</span>
-      </a>
+      </a>` : ''}
+      ${App.can('create') ? `
       <a href="#charts/new" class="action-card">
         <div class="action-icon orange" style="background:var(--orange-soft);color:var(--orange);">${icon('chart', 20)}</div>
         <div class="action-body"><h4>Create Chart</h4><p>Build charts from datasets</p></div>
         <span class="action-arrow">${icon('chevron', 16)}</span>
-      </a>
+      </a>` : ''}
       <a href="#templates" class="action-card">
         <div class="action-icon purple" style="background:var(--purple-soft);color:var(--purple);">${icon('template', 20)}</div>
         <div class="action-body"><h4>Templates</h4><p>Pre-built chart layouts</p></div>
@@ -468,7 +495,7 @@ App.registerPage('#dashboard', async (app) => {
 // UPLOAD
 // ---------------------------------------------------------------
 App.registerPage('#upload', async (app) => {
-  if (!App.auth()) return;
+  if (!App.auth() || !App.can('upload')) { location.hash = '#dashboard'; return; }
   let datasets = [];
   let selectedId = null;
 
@@ -539,7 +566,7 @@ App.registerPage('#upload', async (app) => {
           <div class="dataset-item-name">${App.escapeHtml(d.name)}</div>
           <div class="dataset-item-meta">${App.formatNumber(d.row_count)} rows · ${d.columns?.length || 0} cols · ${App.formatDate(d.uploaded_at)}</div>
         </div>
-        <button class="btn-icon danger delete-ds" data-id="${d.id}" title="Delete">${icon('trash', 15)}</button>
+        ${App.can('delete') ? `<button class="btn-icon danger delete-ds" data-id="${d.id}" title="Delete">${icon('trash', 15)}</button>` : ''}
       </div>`).join('');
 
     dsListEl.querySelectorAll('.dataset-item').forEach(item => {
@@ -582,8 +609,8 @@ App.registerPage('#upload', async (app) => {
             </div>
           </div>
           <div style="display:flex; gap:8px;">
-            <button class="btn btn-secondary btn-sm" id="renameBtn">${icon('pencil', 14)} Rename</button>
-            <a href="#charts/new?datasetId=${ds.id}" class="btn btn-primary btn-sm">${icon('plus', 14)} Create Chart</a>
+            ${App.can('edit') ? `<button class="btn btn-secondary btn-sm" id="renameBtn">${icon('pencil', 14)} Rename</button>` : ''}
+            ${App.can('create') ? `<a href="#charts/new?datasetId=${ds.id}" class="btn btn-primary btn-sm">${icon('plus', 14)} Create Chart</a>` : ''}
           </div>
         </div>
         <div class="dataset-stat-row">
@@ -602,17 +629,20 @@ App.registerPage('#upload', async (app) => {
         <div id="previewBox"><div class="loading" style="padding:16px;"><span class="spinner"></span></div></div>
       </div>`;
 
-    document.getElementById('renameBtn').addEventListener('click', async () => {
-      const newName = await App.promptDialog({ title: 'Rename dataset', keyLabel: 'New name', defaultValue: ds.name, confirmText: 'Save' });
-      if (!newName || newName === ds.name) return;
-      try {
-        await App.apiFetch(`/datasets/${ds.id}`, { method: 'PATCH', body: { name: newName } });
-        ds.name = newName;
-        renderList(searchEl.value);
-        renderDetail(dsId);
-        App.toast('Dataset renamed');
-      } catch (err) { App.toast(err.message, 'error'); }
-    });
+    const renameBtn = document.getElementById('renameBtn');
+    if (renameBtn) {
+      renameBtn.addEventListener('click', async () => {
+        const newName = await App.promptDialog({ title: 'Rename dataset', keyLabel: 'New name', defaultValue: ds.name, confirmText: 'Save' });
+        if (!newName || newName === ds.name) return;
+        try {
+          await App.apiFetch(`/datasets/${ds.id}`, { method: 'PATCH', body: { name: newName } });
+          ds.name = newName;
+          renderList(searchEl.value);
+          renderDetail(dsId);
+          App.toast('Dataset renamed');
+        } catch (err) { App.toast(err.message, 'error'); }
+      });
+    }
 
     try {
       const preview = await App.apiFetch(`/datasets/${dsId}/preview`);
@@ -705,7 +735,7 @@ App.registerPage('#charts', async (app) => {
         <p class="subtitle">Every dataset is a project that can hold multiple charts.</p>
       </div>
       <div class="page-header-actions">
-        <a href="#upload" class="btn btn-primary">${icon('upload', 16)} New Project</a>
+        ${App.can('upload') ? `<a href="#upload" class="btn btn-primary">${icon('upload', 16)} New Project</a>` : ''}
       </div>
     </div>
     <div id="projectsList">${App.loading()}</div>
@@ -783,16 +813,16 @@ App.registerPage('#charts/project/', async (app) => {
             </div>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button class="btn btn-secondary btn-sm" id="renameBtn">${icon('pencil', 14)} Rename</button>
-            <button class="btn btn-danger btn-sm" id="deleteBtn">${icon('trash', 14)} Delete</button>
-            <a href="#charts/new?datasetId=${ds.id}" class="btn btn-primary btn-sm">${icon('plus', 14)} New Chart</a>
+            ${App.can('edit') ? `<button class="btn btn-secondary btn-sm" id="renameBtn">${icon('pencil', 14)} Rename</button>` : ''}
+            ${App.can('delete') ? `<button class="btn btn-danger btn-sm" id="deleteBtn">${icon('trash', 14)} Delete</button>` : ''}
+            ${App.can('create') ? `<a href="#charts/new?datasetId=${ds.id}" class="btn btn-primary btn-sm">${icon('plus', 14)} New Chart</a>` : ''}
           </div>
         </div>
       </div>
       <div class="section-title">Charts <span class="badge slate">${dsCharts.length}</span></div>
       <div class="charts-grid" id="projectCharts">
         ${dsCharts.length === 0
-          ? App.emptyState('chart', 'No charts yet', 'Create your first chart with this dataset.', `<a href="#charts/new?datasetId=${ds.id}" class="btn btn-primary">${icon('plus', 15)} Create Chart</a>`)
+          ? App.emptyState('chart', 'No charts yet', 'Create your first chart with this dataset.', `${App.can('create') ? `<a href="#charts/new?datasetId=${ds.id}" class="btn btn-primary">${icon('plus', 15)} Create Chart</a>` : ''}`)
           : dsCharts.map(c => {
               const spec = c.specification || {};
               const accent = App.chartAccent(spec.chart_type);
@@ -812,30 +842,36 @@ App.registerPage('#charts/project/', async (app) => {
         }
       </div>`;
 
-    document.getElementById('renameBtn').addEventListener('click', async () => {
-      const newName = await App.promptDialog({ title: 'Rename project', keyLabel: 'Project name', defaultValue: ds.display_name || ds.name, confirmText: 'Save' });
-      if (!newName || newName === (ds.display_name || ds.name)) return;
-      try {
-        await App.apiFetch(`/datasets/${ds.id}`, { method: 'PATCH', body: { name: newName } });
-        ds.display_name = newName;
-        location.reload();
-      } catch (err) { App.toast(err.message, 'error'); }
-    });
-
-    document.getElementById('deleteBtn').addEventListener('click', async () => {
-      const ok = await App.confirmDialog({
-        title: 'Delete project?',
-        message: `"${ds.display_name || ds.name}" and all its charts will be removed. This cannot be undone.`,
-        confirmText: 'Delete',
-        danger: true,
+    const renameBtn = document.getElementById('renameBtn');
+    if (renameBtn) {
+      renameBtn.addEventListener('click', async () => {
+        const newName = await App.promptDialog({ title: 'Rename project', keyLabel: 'Project name', defaultValue: ds.display_name || ds.name, confirmText: 'Save' });
+        if (!newName || newName === (ds.display_name || ds.name)) return;
+        try {
+          await App.apiFetch(`/datasets/${ds.id}`, { method: 'PATCH', body: { name: newName } });
+          ds.display_name = newName;
+          location.reload();
+        } catch (err) { App.toast(err.message, 'error'); }
       });
-      if (!ok) return;
-      try {
-        await App.apiFetch(`/datasets/${datasetId}`, { method: 'DELETE' });
-        location.hash = '#charts';
-        App.toast('Project deleted', 'info');
-      } catch (err) { App.toast(err.message, 'error'); }
-    });
+    }
+
+    const deleteBtn = document.getElementById('deleteBtn');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', async () => {
+        const ok = await App.confirmDialog({
+          title: 'Delete project?',
+          message: `"${ds.display_name || ds.name}" and all its charts will be removed. This cannot be undone.`,
+          confirmText: 'Delete',
+          danger: true,
+        });
+        if (!ok) return;
+        try {
+          await App.apiFetch(`/datasets/${datasetId}`, { method: 'DELETE' });
+          location.hash = '#charts';
+          App.toast('Project deleted', 'info');
+        } catch (err) { App.toast(err.message, 'error'); }
+      });
+    }
   } catch (err) {
     contentEl.innerHTML = App.errBlock(err.message);
   }
@@ -845,12 +881,12 @@ App.registerPage('#charts/project/', async (app) => {
 // NEW CHART (editor)
 // ---------------------------------------------------------------
 App.registerPage('#charts/new', async (app) => {
-  if (!App.auth()) return;
+  if (!App.auth() || !App.can('create')) { location.hash = '#dashboard'; return; }
 
   const params = new URLSearchParams(location.hash.split('?')[1] || '');
   const preset = JSON.parse(sessionStorage.getItem('chartly_preset') || 'null');
   sessionStorage.removeItem('chartly_preset');
-  const defaultType = localStorage.getItem('chartly_default_chart') || 'bar';
+  const defaultType = App.settings.default_chart_type || 'bar';
 
   app.innerHTML = App.shell('charts', 'Create Chart', `
     <div class="page-header">
@@ -901,10 +937,31 @@ App.registerPage('#charts/new', async (app) => {
             <option value="max">Max</option>
           </select>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Sorting</label>
+            <select id="sorting" class="form-select">
+              <option value="none">None</option>
+              <option value="asc">Ascending</option>
+              <option value="desc">Descending</option>
+            </select>
+          </div>
+          <div class="form-group" id="granularityGroup" style="display:none;">
+            <label class="form-label">Time granularity</label>
+            <select id="granularity" class="form-select">
+              <option value="day">Day</option>
+              <option value="week">Week</option>
+              <option value="month">Month</option>
+              <option value="quarter">Quarter</option>
+              <option value="year">Year</option>
+            </select>
+          </div>
+        </div>
         <div class="form-group">
           <label class="form-label">Title</label>
           <input type="text" id="chartTitle" class="form-input" placeholder="e.g. Revenue by Region">
         </div>
+        <div class="config-summary" id="configSummary" style="display:none;"></div>
         <button class="btn btn-primary" id="createChartBtn" style="width:100%; padding:11px;">${icon('chart', 16)} Generate Chart</button>
         <div class="recommend-box" style="margin-top:18px;">
           <div class="form-label" style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">${icon('sparkles', 13)} Suggestions</div>
@@ -925,10 +982,13 @@ App.registerPage('#charts/new', async (app) => {
   const dimEl = document.getElementById('dimension');
   const metEl = document.getElementById('metric');
   const aggGroup = document.getElementById('aggGroup');
+  const granGroup = document.getElementById('granularityGroup');
   let datasets = [];
+  let currentDs = null;
 
   function populateColumns(ds) {
     if (!ds || !ds.columns) return;
+    currentDs = ds;
     const allCols = ds.columns.map(c => c.name);
     const numCols = ds.columns.filter(c => c.type === 'number').map(c => c.name);
     dimEl.innerHTML = allCols.length
@@ -937,6 +997,35 @@ App.registerPage('#charts/new', async (app) => {
     metEl.innerHTML = numCols.length
       ? numCols.map(c => `<option value="${App.escapeHtml(c)}">${App.escapeHtml(c)}</option>`).join('')
       : '<option value="">No numeric columns</option>';
+  }
+
+  function dimIsDate() {
+    if (!currentDs) return false;
+    const col = (currentDs.columns || []).find(c => c.name === dimEl.value);
+    return !!(col && col.type === 'date');
+  }
+
+  function updateGranularityUI() {
+    const type = document.getElementById('chartType').value;
+    const show = dimIsDate() && ['bar', 'line', 'area'].includes(type);
+    granGroup.style.display = show ? '' : 'none';
+  }
+
+  function updateSummary() {
+    const el = document.getElementById('configSummary');
+    const type = document.getElementById('chartType').value;
+    if (!type || !dimEl.value || !currentDs) { el.style.display = 'none'; return; }
+    const isHistogram = type === 'histogram';
+    const isRaw = App.rawTypes.includes(type);
+    const agg = document.getElementById('aggregation').value;
+    const sort = document.getElementById('sorting').value;
+    const gran = document.getElementById('granularity').value;
+    const parts = [App.chartTypeLabel(type), `${dimEl.value}${!isHistogram ? ' by ' + metEl.value : ''}`];
+    if (!isRaw) parts.push(agg === 'count' ? 'counted' : agg + ' of ' + metEl.value);
+    if (sort !== 'none') parts.push('sorted ' + sort);
+    if (granGroup.style.display !== 'none' && gran) parts.push('per ' + gran);
+    el.style.display = '';
+    el.innerHTML = `${icon('info', 14)}<span><strong>Ready to generate:</strong> ${App.escapeHtml(parts.join(' — '))}</span>`;
   }
 
   function updateTypeUI() {
@@ -956,8 +1045,15 @@ App.registerPage('#charts/new', async (app) => {
         ? 'Aggregates the metric by the X-axis, then plots the hierarchy.'
         : '';
     }
+    updateGranularityUI();
+    updateSummary();
   }
   document.getElementById('chartType').addEventListener('change', updateTypeUI);
+  dimEl.addEventListener('change', () => { updateGranularityUI(); updateSummary(); });
+  metEl.addEventListener('change', updateSummary);
+  document.getElementById('aggregation').addEventListener('change', updateSummary);
+  document.getElementById('sorting').addEventListener('change', updateSummary);
+  document.getElementById('granularity').addEventListener('change', updateSummary);
 
   async function loadRecommendations(dsId) {
     const el = document.getElementById('recommendList');
@@ -1002,6 +1098,10 @@ App.registerPage('#charts/new', async (app) => {
       if (preset.chart_type) document.getElementById('chartType').value = preset.chart_type;
       if (preset.title) document.getElementById('chartTitle').value = preset.title;
       if (preset.aggregation) document.getElementById('aggregation').value = preset.aggregation;
+      if (preset.sorting) document.getElementById('sorting').value = preset.sorting;
+      if (preset.time_granularity) document.getElementById('granularity').value = preset.time_granularity;
+      if (preset.dimension && dimEl.querySelector(`option[value="${CSS.escape(preset.dimension)}"]`)) dimEl.value = preset.dimension;
+      if (preset.metric && metEl.querySelector(`option[value="${CSS.escape(preset.metric)}"]`)) metEl.value = preset.metric;
     } else {
       document.getElementById('chartType').value = defaultType;
     }
@@ -1015,6 +1115,8 @@ App.registerPage('#charts/new', async (app) => {
     const ds = datasets.find(d => d.id === id);
     populateColumns(ds);
     if (ds) loadRecommendations(id);
+    updateGranularityUI();
+    updateSummary();
   });
 
   document.getElementById('createChartBtn').addEventListener('click', async () => {
@@ -1043,7 +1145,8 @@ App.registerPage('#charts/new', async (app) => {
             dimension,
             metric: metric || dimension,
             aggregation,
-            sorting: 'none',
+            sorting: document.getElementById('sorting').value || 'none',
+            time_granularity: granGroup.style.display !== 'none' ? document.getElementById('granularity').value : null,
             title,
           },
         },
@@ -1090,9 +1193,12 @@ App.registerPage('#charts/', async (app) => {
             <p class="subtitle" style="font-size:12.5px;">${ds ? App.escapeHtml(ds.name) : 'Dataset removed'} · ${App.formatDate(chart.created_at)}</p>
           </div>
           <div class="page-header-actions">
-            <button class="btn btn-secondary btn-sm" id="editChartBtn">${icon('pencil', 14)} Edit Chart</button>
-            <button class="btn btn-secondary btn-sm" id="saveTemplateBtn">${icon('template', 14)} Save as Template</button>
+            ${App.can('edit') ? `<button class="btn btn-secondary btn-sm" id="editChartBtn">${icon('pencil', 14)} Edit Chart</button>` : ''}
+            ${App.can('edit') ? `<button class="btn btn-secondary btn-sm" id="saveTemplateBtn">${icon('template', 14)} Save as Template</button>` : ''}
+            <button class="btn btn-secondary btn-sm" id="exportPngBtn">${icon('download', 13)} PNG</button>
+            <button class="btn btn-secondary btn-sm" id="exportJpgBtn">${icon('download', 13)} JPG</button>
             <button class="btn btn-secondary btn-sm" id="exportCodeBtn">${icon('code', 14)} Export Code</button>
+            ${App.can('delete') ? `<button class="btn btn-danger btn-sm" id="deleteChartBtn" title="Delete chart">${icon('trash', 14)}</button>` : ''}
           </div>
         </div>
         <div class="chart-meta-chips">
@@ -1148,6 +1254,26 @@ App.registerPage('#charts/', async (app) => {
             <select id="editMetric" class="form-select"><option value="">Loading...</option></select>
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Sorting</label>
+            <select id="editSorting" class="form-select">
+              <option value="none">None</option>
+              <option value="asc">Ascending</option>
+              <option value="desc">Descending</option>
+            </select>
+          </div>
+          <div class="form-group" id="editGranularityGroup" style="display:none;">
+            <label class="form-label">Time granularity</label>
+            <select id="editGranularity" class="form-select">
+              <option value="day">Day</option>
+              <option value="week">Week</option>
+              <option value="month">Month</option>
+              <option value="quarter">Quarter</option>
+              <option value="year">Year</option>
+            </select>
+          </div>
+        </div>
         <div class="form-group">
           <label class="form-label">Title</label>
           <input type="text" id="editTitle" class="form-input" placeholder="Chart title">
@@ -1186,7 +1312,9 @@ App.registerPage('#charts/', async (app) => {
                   <div>
                     ${isCurrent
                       ? `<span class="badge green">${icon('check', 12)} Current</span>`
-                      : `<button class="btn btn-secondary btn-sm restore-version" data-ver="${v.id}">${icon('refresh', 13)} Restore</button>`}
+                      : App.can('edit')
+                        ? `<button class="btn btn-secondary btn-sm restore-version" data-ver="${v.id}">${icon('refresh', 13)} Restore</button>`
+                        : ''}
                   </div>
                 </div>`;
               }).join('')}
@@ -1212,12 +1340,15 @@ App.registerPage('#charts/', async (app) => {
     };
     drawChart();
 
-    document.getElementById('editChartBtn').addEventListener('click', () => {
-      const card = document.getElementById('editCard');
-      const shown = card.style.display !== 'none';
-      card.style.display = shown ? 'none' : 'block';
-      if (!shown) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
+    const editChartBtn = document.getElementById('editChartBtn');
+    if (editChartBtn) {
+      editChartBtn.addEventListener('click', () => {
+        const card = document.getElementById('editCard');
+        const shown = card.style.display !== 'none';
+        card.style.display = shown ? 'none' : 'block';
+        if (!shown) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    }
     document.getElementById('cancelEditBtn').addEventListener('click', () => {
       document.getElementById('editCard').style.display = 'none';
     });
@@ -1239,8 +1370,15 @@ App.registerPage('#charts/', async (app) => {
       if (spec.dimension) dimSel.value = spec.dimension;
       if (spec.metric && numCols.includes(spec.metric)) metSel.value = spec.metric;
       document.getElementById('editAggregation').value = spec.aggregation || 'sum';
+      document.getElementById('editSorting').value = spec.sorting || 'none';
+      document.getElementById('editGranularity').value = spec.time_granularity || 'month';
       document.getElementById('editTitle').value = spec.title || '';
       updateEditUI();
+    }
+    function editDimIsDate() {
+      if (!ds || !ds.columns) return false;
+      const col = ds.columns.find(c => c.name === document.getElementById('editDimension').value);
+      return !!(col && col.type === 'date');
     }
     function updateEditUI() {
       const type = document.getElementById('editType').value;
@@ -1248,12 +1386,15 @@ App.registerPage('#charts/', async (app) => {
       const isHistogram = type === 'histogram';
       document.getElementById('editAggGroup').style.display = isRaw ? 'none' : '';
       document.getElementById('editMetric').disabled = isHistogram;
+      document.getElementById('editGranularityGroup').style.display =
+        editDimIsDate() && ['bar', 'line', 'area'].includes(type) ? '' : 'none';
       document.getElementById('editTypeHint').textContent = isHistogram
         ? 'Plots the distribution of the X-axis column — Y-axis not needed.'
         : (type === 'box' || type === 'violin' ? 'Shows the raw spread of Y values per X category — aggregation is not applied.' : '');
     }
     populateEditForm();
     document.getElementById('editType').addEventListener('change', updateEditUI);
+    document.getElementById('editDimension').addEventListener('change', updateEditUI);
 
     // Save changes -> regenerate with the edited spec (creates a new version)
     document.getElementById('saveRegenBtn').addEventListener('click', async () => {
@@ -1271,6 +1412,7 @@ App.registerPage('#charts/', async (app) => {
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span> Regenerating...';
       try {
+        const granGroup = document.getElementById('editGranularityGroup');
         await App.apiFetch(`/charts/${chartId}/regenerate`, {
           method: 'POST',
           body: {
@@ -1280,7 +1422,8 @@ App.registerPage('#charts/', async (app) => {
               dimension,
               metric: metric || dimension,
               aggregation,
-              sorting: 'none',
+              sorting: document.getElementById('editSorting').value || 'none',
+              time_granularity: granGroup.style.display !== 'none' ? document.getElementById('editGranularity').value : null,
               title,
             },
           },
@@ -1312,26 +1455,64 @@ App.registerPage('#charts/', async (app) => {
       });
     });
 
-    document.getElementById('saveTemplateBtn').addEventListener('click', async () => {
-      const name = await App.promptDialog({
-        title: 'Save as template',
-        message: 'Templates let you reuse this chart style with any dataset.',
-        keyLabel: 'Template name',
-        defaultValue: spec.title || '',
-        placeholder: 'e.g. Monthly Trend',
+    const saveTemplateBtn = document.getElementById('saveTemplateBtn');
+    if (saveTemplateBtn) {
+      saveTemplateBtn.addEventListener('click', async () => {
+        const name = await App.promptDialog({
+          title: 'Save as template',
+          message: 'Templates let you reuse this chart style with any dataset.',
+          keyLabel: 'Template name',
+          defaultValue: spec.title || '',
+          placeholder: 'e.g. Monthly Trend',
+        });
+        if (!name) return;
+        try {
+          await App.apiFetch('/templates/', { method: 'POST', body: { chart_id: chart.id, name } });
+          App.toast('Template saved');
+        } catch (err) { App.toast(err.message, 'error'); }
       });
-      if (!name) return;
-      try {
-        await App.apiFetch('/templates/', { method: 'POST', body: { chart_id: chart.id, name } });
-        App.toast('Template saved');
-      } catch (err) { App.toast(err.message, 'error'); }
-    });
+    }
 
     let currentLang = 'python';
     document.getElementById('exportCodeBtn').addEventListener('click', () => {
       const section = document.getElementById('codeSection');
       section.style.display = section.style.display === 'none' ? 'block' : 'none';
     });
+
+    const downloadImage = async (format) => {
+      const plotEl = document.getElementById('chartRenderBox').querySelector('.js-plotly-plot');
+      if (!plotEl) { App.toast('Chart is not rendered yet', 'warn'); return; }
+      try {
+        const dataUrl = await Plotly.toImage(plotEl, { format, width: 1280, height: 720, scale: 2 });
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `${(spec.title || 'chart').replace(/[^\w\- ]+/g, '_').trim() || 'chart'}.${format === 'jpeg' ? 'jpg' : 'png'}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        App.toast(`${format.toUpperCase()} exported`);
+      } catch (err) { App.toast('Export failed: ' + err.message, 'error'); }
+    };
+    document.getElementById('exportPngBtn').addEventListener('click', () => downloadImage('png'));
+    document.getElementById('exportJpgBtn').addEventListener('click', () => downloadImage('jpeg'));
+
+    const deleteChartBtn = document.getElementById('deleteChartBtn');
+    if (deleteChartBtn) {
+      deleteChartBtn.addEventListener('click', async () => {
+        const ok = await App.confirmDialog({
+          title: 'Delete this chart?',
+          message: `"${spec.title || 'Untitled chart'}" and all its versions will be removed. This cannot be undone.`,
+          confirmText: 'Delete',
+          danger: true,
+        });
+        if (!ok) return;
+        try {
+          await App.apiFetch(`/charts/${chartId}`, { method: 'DELETE' });
+          App.toast('Chart deleted', 'info');
+          location.hash = '#charts';
+        } catch (err) { App.toast(err.message, 'error'); }
+      });
+    }
     document.querySelectorAll('.code-tab').forEach(tab => {
       tab.addEventListener('click', () => {
         document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
@@ -1359,17 +1540,21 @@ App.registerPage('#templates', async (app) => {
   app.innerHTML = App.shell('templates', 'Templates', `
     <div class="page-header">
       <div><h1>Templates</h1><p class="subtitle">Reusable chart styles — apply one to any dataset.</p></div>
-      <div class="page-header-actions"><a href="#charts" class="btn btn-secondary">${icon('chart', 15)} Browse Charts</a></div>
+      <div class="page-header-actions">
+        <input type="text" class="form-input" id="templateSearch" placeholder="Search templates..." style="width:190px; padding:7px 10px; font-size:12.5px;">
+        <a href="#charts" class="btn btn-secondary">${icon('chart', 15)} Browse Charts</a>
+      </div>
     </div>
     <div id="templatesList">${App.loading()}</div>
   `);
 
   const listEl = document.getElementById('templatesList');
-  try {
-    const templates = await App.apiFetch('/templates/');
-    const list = Array.isArray(templates) ? templates : [];
+  const searchEl = document.getElementById('templateSearch');
+  let list = [];
+
+  const render = () => {
     if (list.length === 0) {
-      listEl.innerHTML = App.emptyState('template', 'No templates yet', 'Create a chart, then save it as a template to reuse the style.', '<a href="#charts/new" class="btn btn-primary">Create a Chart</a>');
+      listEl.innerHTML = App.emptyState('template', 'No templates yet', 'Create a chart, then save it as a template to reuse the style.', App.can('create') ? '<a href="#charts/new" class="btn btn-primary">Create a Chart</a>' : '');
       return;
     }
     listEl.innerHTML = `<div class="charts-grid">${list.map(t => {
@@ -1387,26 +1572,14 @@ App.registerPage('#templates', async (app) => {
           </div>
           <small class="date">Created ${App.formatDate(t.created_at)}</small>
           <div class="chart-card-footer">
-            <button class="btn btn-primary btn-sm apply-template" data-id="${t.id}" style="flex:1;">${icon('sparkles', 13)} Use Template</button>
-            <button class="btn btn-secondary btn-sm delete-template" data-id="${t.id}" title="Delete">${icon('trash', 14)}</button>
+            ${App.can('create') ? `<button class="btn btn-primary btn-sm apply-template" data-id="${t.id}" style="flex:1;">${icon('sparkles', 13)} Use Template</button>` : ''}
+            ${App.can('delete') ? `<button class="btn btn-secondary btn-sm delete-template" data-id="${t.id}" title="Delete">${icon('trash', 14)}</button>` : ''}
           </div>
         </div>`;
     }).join('')}</div>`;
 
     listEl.querySelectorAll('.apply-template').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const t = list.find(x => x.id === btn.dataset.id);
-        if (t && t.specification) {
-          sessionStorage.setItem('chartly_preset', JSON.stringify({
-            name: t.name,
-            chart_type: t.specification.chart_type,
-            aggregation: t.specification.aggregation || 'sum',
-            title: t.specification.title || '',
-          }));
-        }
-        App.toast('Template selected — configure your data', 'info');
-        location.hash = '#charts/new';
-      });
+      btn.addEventListener('click', () => openApplyModal(list.find(x => x.id === btn.dataset.id)));
     });
 
     listEl.querySelectorAll('.delete-template').forEach(btn => {
@@ -1416,14 +1589,94 @@ App.registerPage('#templates', async (app) => {
         if (!ok) return;
         try {
           await App.apiFetch(`/templates/${btn.dataset.id}`, { method: 'DELETE' });
+          list = list.filter(x => x.id !== btn.dataset.id);
+          render();
           App.toast('Template deleted', 'info');
-          location.hash = '#templates';
         } catch (err) { App.toast(err.message, 'error'); }
       });
     });
-  } catch (err) {
-    listEl.innerHTML = App.errBlock(err.message);
-  }
+  };
+
+  const openApplyModal = async (template) => {
+    if (!template) return;
+    let datasets = [];
+    try {
+      const data = await App.apiFetch('/datasets/');
+      datasets = Array.isArray(data) ? data : [];
+    } catch (_) {}
+    if (datasets.length === 0) {
+      App.toast('Upload a dataset first to apply this template', 'warn');
+      location.hash = '#upload';
+      return;
+    }
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal">
+        <h3>Apply "${App.escapeHtml(template.name)}"</h3>
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">Choose a dataset with matching columns. Chart options will be pre-filled.</p>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label">Dataset</label>
+          <select class="form-select" id="applyDataset">
+            ${datasets.map(d => `<option value="${d.id}">${App.escapeHtml(d.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" data-act="cancel">Cancel</button>
+          <button class="btn btn-primary" data-act="apply">${icon('sparkles', 14)} Apply Template</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', async (e) => {
+      const act = e.target.closest('[data-act]');
+      if (!act) return;
+      if (act.dataset.act === 'cancel') { overlay.remove(); return; }
+      const dsId = overlay.querySelector('#applyDataset').value;
+      const applyBtn = overlay.querySelector('[data-act="apply"]');
+      applyBtn.disabled = true;
+      applyBtn.innerHTML = '<span class="spinner"></span> Validating...';
+      try {
+        const result = await App.apiFetch('/templates/apply', {
+          method: 'POST',
+          body: { template_id: template.id, dataset_id: dsId },
+        });
+        const spec = result.specification || {};
+        sessionStorage.setItem('chartly_preset', JSON.stringify({
+          name: result.template_name || template.name,
+          dataset_id: dsId,
+          chart_type: spec.chart_type,
+          dimension: spec.dimension,
+          metric: spec.metric,
+          aggregation: spec.aggregation || 'sum',
+          sorting: spec.sorting || 'none',
+          time_granularity: spec.time_granularity || null,
+          title: spec.title || '',
+        }));
+        overlay.remove();
+        App.toast('Template validated — chart options pre-filled', 'info');
+        location.hash = `#charts/new?dataset_id=${dsId}`;
+      } catch (err) {
+        applyBtn.disabled = false;
+        applyBtn.innerHTML = `${icon('sparkles', 14)} Apply Template`;
+        App.toast('Cannot apply template: ' + err.message, 'error');
+      }
+    });
+  };
+
+  const load = async () => {
+    try {
+      const q = searchEl.value.trim();
+      const data = await App.apiFetch(`/templates/${q ? `?search=${encodeURIComponent(q)}` : ''}`);
+      list = Array.isArray(data) ? data : [];
+    } catch (err) {
+      listEl.innerHTML = App.errBlock(err.message);
+      return;
+    }
+    render();
+  };
+
+  searchEl.addEventListener('input', () => { clearTimeout(searchEl._t); searchEl._t = setTimeout(load, 300); });
+  load();
 });
 
 // ---------------------------------------------------------------
@@ -1469,45 +1722,161 @@ App.registerPage('#audit', async (app) => {
 // ---------------------------------------------------------------
 App.registerPage('#users', async (app) => {
   if (!App.auth() || App.user?.role !== 'admin') { location.hash = '#dashboard'; return; }
-  const users = [
-    { name: 'Admin', email: 'admin@chartly.com', role: 'admin', desc: 'Full access — manage everything' },
-    { name: 'Analyst', email: 'analyst@chartly.com', role: 'analyst', desc: 'Create charts and upload data' },
-    { name: 'Viewer', email: 'viewer@chartly.com', role: 'viewer', desc: 'View charts and dashboards' },
-  ];
   app.innerHTML = App.shell('users', 'Users', `
-    <div class="page-header"><div><h1>Users</h1><p class="subtitle">Accounts on this platform.</p></div></div>
-    <div class="card" style="padding:8px 0;">
+    <div class="page-header">
+      <div><h1>Users</h1><p class="subtitle">Accounts on this platform.</p></div>
+      <div class="page-header-actions"><button class="btn btn-primary btn-sm" id="addUserBtn">${icon('plus', 14)} Add User</button></div>
+    </div>
+    <div class="card" style="padding:8px 0;" id="usersCard">${App.loading()}</div>
+  `);
+
+  const cardEl = document.getElementById('usersCard');
+  let users = [];
+
+  const render = () => {
+    cardEl.innerHTML = `
       <div class="table-wrap">
-        <table class="data-table" style="min-width:560px;">
-          <thead><tr><th>User</th><th>Email</th><th>Role</th><th>Access</th></tr></thead>
-          <tbody>${users.map(u => `
+        <table class="data-table" style="min-width:640px;">
+          <thead><tr><th>User</th><th>Email</th><th>Role</th><th>Joined</th><th style="text-align:right;">Actions</th></tr></thead>
+          <tbody>${users.map(u => {
+            const isSelf = u.id === App.user?.id;
+            return `
             <tr>
-              <td><div style="display:flex; align-items:center; gap:10px;"><div class="avatar" style="width:30px; height:30px; font-size:12px;">${App.escapeHtml(u.name[0])}</div><strong>${App.escapeHtml(u.name)}</strong></div></td>
+              <td><div style="display:flex; align-items:center; gap:10px;"><div class="avatar" style="width:30px; height:30px; font-size:12px;">${App.escapeHtml((u.name || 'U')[0])}</div><strong>${App.escapeHtml(u.name)}</strong>${isSelf ? '<span class="badge slate" style="margin-left:4px;">you</span>' : ''}</div></td>
               <td>${App.escapeHtml(u.email)}</td>
-              <td><span class="badge ${u.role === 'admin' ? 'orange' : u.role === 'analyst' ? 'blue' : 'slate'}">${u.role}</span></td>
-              <td style="font-size:12.5px; color:var(--text-secondary);">${App.escapeHtml(u.desc)}</td>
-            </tr>`).join('')}
+              <td>
+                <select class="form-select role-select" data-id="${u.id}" ${isSelf ? 'disabled' : ''} style="width:110px; padding:5px 8px; font-size:12px;">
+                  <option value="viewer" ${u.role === 'viewer' ? 'selected' : ''}>viewer</option>
+                  <option value="analyst" ${u.role === 'analyst' ? 'selected' : ''}>analyst</option>
+                  <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>admin</option>
+                </select>
+              </td>
+              <td style="font-size:12.5px; color:var(--text-secondary); white-space:nowrap;">${App.formatDate(u.created_at)}</td>
+              <td style="text-align:right;">
+                <button class="btn-icon danger delete-user" data-id="${u.id}" ${isSelf ? 'disabled' : ''} title="${isSelf ? 'You cannot delete your own account' : 'Delete user'}">${icon('trash', 15)}</button>
+              </td>
+            </tr>`;
+          }).join('')}
           </tbody>
         </table>
-      </div>
-    </div>
-  `);
+      </div>`;
+
+    cardEl.querySelectorAll('.role-select').forEach(sel => {
+      sel.addEventListener('change', async () => {
+        const u = users.find(x => x.id === sel.dataset.id);
+        if (!u || u.role === sel.value) return;
+        const ok = await App.confirmDialog({
+          title: 'Change role?',
+          message: `${u.name} will become ${sel.value}. Their access level changes immediately.`,
+          confirmText: 'Update role',
+        });
+        if (!ok) { sel.value = u.role; return; }
+        try {
+          await App.apiFetch(`/users/${u.id}`, { method: 'PATCH', body: { role: sel.value } });
+          u.role = sel.value;
+          App.toast(`Role updated to ${sel.value}`);
+        } catch (err) { sel.value = u.role; App.toast(err.message, 'error'); }
+      });
+    });
+
+    cardEl.querySelectorAll('.delete-user').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const u = users.find(x => x.id === btn.dataset.id);
+        const ok = await App.confirmDialog({ title: 'Delete user?', message: `${u ? u.name : 'This user'} will lose access to the platform immediately.`, confirmText: 'Delete', danger: true });
+        if (!ok) return;
+        try {
+          await App.apiFetch(`/users/${btn.dataset.id}`, { method: 'DELETE' });
+          users = users.filter(x => x.id !== btn.dataset.id);
+          render();
+          App.toast('User deleted', 'info');
+        } catch (err) { App.toast(err.message, 'error'); }
+      });
+    });
+  };
+
+  const openAddModal = () => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal">
+        <h3>Add user</h3>
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">The new user can sign in immediately with these credentials.</p>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Name</label>
+          <input type="text" class="form-input" id="nuName" placeholder="e.g. Sarah Analyst">
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Email</label>
+          <input type="email" class="form-input" id="nuEmail" placeholder="user@company.com">
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Password</label>
+          <input type="password" class="form-input" id="nuPassword" placeholder="Min 6 characters">
+        </div>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label">Role</label>
+          <select class="form-select" id="nuRole">
+            <option value="viewer">Viewer</option>
+            <option value="analyst">Analyst</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" data-act="cancel">Cancel</button>
+          <button class="btn btn-primary" data-act="ok">${icon('check', 14)} Create User</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', async (e) => {
+      const act = e.target.closest('[data-act]');
+      if (!act) return;
+      if (act.dataset.act === 'cancel') { overlay.remove(); return; }
+      const name = overlay.querySelector('#nuName').value.trim();
+      const email = overlay.querySelector('#nuEmail').value.trim();
+      const password = overlay.querySelector('#nuPassword').value;
+      const role = overlay.querySelector('#nuRole').value;
+      if (!name || !email || !password) { App.toast('Name, email and password are required', 'warn'); return; }
+      if (password.length < 6) { App.toast('Password must be at least 6 characters', 'warn'); return; }
+      const btn = overlay.querySelector('[data-act="ok"]');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Creating...';
+      try {
+        const created = await App.apiFetch('/users/', { method: 'POST', body: { name, email, password, role } });
+        users.push(created);
+        render();
+        overlay.remove();
+        App.toast(`User ${created.name} created`);
+      } catch (err) {
+        btn.disabled = false;
+        btn.innerHTML = `${icon('check', 14)} Create User`;
+        App.toast(err.message, 'error');
+      }
+    });
+  };
+
+  try {
+    const data = await App.apiFetch('/users/');
+    users = Array.isArray(data) ? data : [];
+    render();
+  } catch (err) {
+    cardEl.innerHTML = App.errBlock(err.message);
+  }
+  document.getElementById('addUserBtn').addEventListener('click', openAddModal);
 });
 
 // ---------------------------------------------------------------
 // SETTINGS
 // ---------------------------------------------------------------
-App.registerPage('#settings', (app) => {
+App.registerPage('#settings', async (app) => {
   if (!App.auth() || App.user?.role !== 'admin') { location.hash = '#dashboard'; return; }
-  const defaultType = localStorage.getItem('chartly_default_chart') || 'bar';
   app.innerHTML = App.shell('settings', 'Settings', `
-    <div class="page-header"><div><h1>Settings</h1><p class="subtitle">Preferences are saved in your browser.</p></div></div>
+    <div class="page-header"><div><h1>Settings</h1><p class="subtitle">Platform-wide settings shared by the team.</p></div></div>
     <div class="card" style="padding:22px; max-width:480px;">
-      <h3 style="font-size:14px; font-weight:700; margin-bottom:16px;">Chart Preferences</h3>
+      <h3 style="font-size:14px; font-weight:700; margin-bottom:16px;">Platform Settings</h3>
       <div class="form-group">
         <label class="form-label">Platform name</label>
-        <input type="text" class="form-input" value="Chartly" disabled>
-        <p class="form-hint">Fixed for this MVP version.</p>
+        <input type="text" class="form-input" id="platformName" value="Chartly">
+        <p class="form-hint">Shown in the sidebar for every user.</p>
       </div>
       <div class="form-group">
         <label class="form-label">Default chart type</label>
@@ -1523,15 +1892,35 @@ App.registerPage('#settings', (app) => {
           <option value="treemap">Treemap</option>
           <option value="funnel">Funnel Chart</option>
         </select>
-        <p class="form-hint">Pre-selected whenever you open the chart editor.</p>
+        <p class="form-hint">Pre-selected whenever a chart editor opens.</p>
       </div>
-      <button class="btn btn-primary" id="saveSettingsBtn">${icon('check', 15)} Save Preferences</button>
+      <button class="btn btn-primary" id="saveSettingsBtn">${icon('check', 15)} Save Settings</button>
     </div>
   `);
-  document.getElementById('defaultChartType').value = defaultType;
-  document.getElementById('saveSettingsBtn').addEventListener('click', () => {
-    localStorage.setItem('chartly_default_chart', document.getElementById('defaultChartType').value);
-    App.toast('Preferences saved');
+  const nameEl = document.getElementById('platformName');
+  const typeEl = document.getElementById('defaultChartType');
+  try {
+    const settings = await App.apiFetch('/settings/');
+    if (settings.platform_name) nameEl.value = settings.platform_name;
+    if (settings.default_chart_type && [...typeEl.options].some(o => o.value === settings.default_chart_type)) typeEl.value = settings.default_chart_type;
+  } catch (_) {}
+  document.getElementById('saveSettingsBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('saveSettingsBtn');
+    btn.disabled = true;
+    try {
+      const saved = await App.apiFetch('/settings/', {
+        method: 'PUT',
+        body: { platform_name: nameEl.value.trim() || 'Chartly', default_chart_type: typeEl.value },
+      });
+      App.settings = saved;
+      App.toast('Settings saved');
+      const brand = document.querySelector('.sidebar-brand .brand-name');
+      if (brand) brand.textContent = saved.platform_name || 'Chartly';
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
   });
 });
 
@@ -1690,4 +2079,4 @@ Plotly.newPlot("chart", [trace], layout);
 // Router
 // ---------------------------------------------------------------
 window.addEventListener('hashchange', () => { App.renderApp(); window.scrollTo(0, 0); });
-window.addEventListener('DOMContentLoaded', () => App.renderApp());
+window.addEventListener('DOMContentLoaded', async () => { await App.loadSettings(); App.renderApp(); });

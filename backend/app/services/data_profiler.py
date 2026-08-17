@@ -10,12 +10,17 @@ def profile_dataset(df: pd.DataFrame) -> list[dict[str, Any]]:
 
         if pd.api.types.is_numeric_dtype(dtype):
             col_type = "number"
-        elif pd.api.types.is_datetime64_any_dtype(dtype):
-            col_type = "date"
         elif pd.api.types.is_bool_dtype(dtype):
             col_type = "boolean"
+        elif pd.api.types.is_datetime64_any_dtype(dtype):
+            col_type = "date"
         else:
-            col_type = "string"
+            non_null = col_data.dropna()
+            if len(non_null) > 0:
+                coerced = pd.to_datetime(non_null, errors="coerce")
+                col_type = "date" if coerced.notna().mean() >= 0.9 else "string"
+            else:
+                col_type = "string"
 
         unique_count = int(col_data.nunique())
         missing_count = int(col_data.isna().sum())

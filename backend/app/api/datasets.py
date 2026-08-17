@@ -1,4 +1,5 @@
 import os
+from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -7,6 +8,7 @@ from app.core.config import get_settings
 from app.models.models import Dataset, User
 from app.models.schemas import DatasetResponse, ColumnProfileResponse
 from app.services.data_profiler import profile_dataset
+from app.api.auth import get_current_user, require_role
 
 router = APIRouter()
 settings = get_settings()
@@ -19,6 +21,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 async def upload_dataset(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    user: User = Depends(require_role("admin", "analyst")),
 ):
     file_ext = os.path.splitext(file.filename)[1].lower()
     if file_ext not in settings.ALLOWED_EXTENSIONS:
@@ -27,9 +30,16 @@ async def upload_dataset(
             detail=f"File type {file_ext} not allowed. Use: {', '.join(settings.ALLOWED_EXTENSIONS)}",
         )
 
-    file_path = os.path.join(UPLOAD_DIR, f"{file.filename}")
+    content = await file.read()
+    if len(content) > settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File exceeds the {settings.MAX_UPLOAD_SIZE_MB} MB upload limit",
+        )
+
+    safe_name = f"{uuid4().hex}_{os.path.basename(file.filename)}"
+    file_path = os.path.join(UPLOAD_DIR, safe_name)
     with open(file_path, "wb") as f:
-        content = await file.read()
         f.write(content)
 
     import pandas as pd
@@ -66,7 +76,10 @@ async def upload_dataset(
 
 
 @router.get("/", response_model=list[DatasetResponse])
-def list_datasets(db: Session = Depends(get_db)):
+def list_datasets(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     datasets = db.query(Dataset).order_by(Dataset.uploaded_at.desc()).all()
     return [
         DatasetResponse(
@@ -84,7 +97,11 @@ def list_datasets(db: Session = Depends(get_db)):
 
 
 @router.get("/{dataset_id}", response_model=DatasetResponse)
-def get_dataset(dataset_id: str, db: Session = Depends(get_db)):
+def get_dataset(
+    dataset_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
@@ -106,7 +123,12 @@ class RenameRequest(BaseModel):
 
 
 @router.patch("/{dataset_id}", response_model=DatasetResponse)
-def rename_dataset(dataset_id: str, request: RenameRequest, db: Session = Depends(get_db)):
+def rename_dataset(
+    dataset_id: str,
+    request: RenameRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("admin", "analyst")),
+):
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
@@ -126,7 +148,11 @@ def rename_dataset(dataset_id: str, request: RenameRequest, db: Session = Depend
 
 
 @router.get("/{dataset_id}/preview")
-def preview_dataset(dataset_id: str, db: Session = Depends(get_db)):
+def preview_dataset(
+    dataset_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
@@ -144,7 +170,11 @@ def preview_dataset(dataset_id: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/{dataset_id}")
-def delete_dataset(dataset_id: str, db: Session = Depends(get_db)):
+def delete_dataset(
+    dataset_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("admin", "analyst")),
+):
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")

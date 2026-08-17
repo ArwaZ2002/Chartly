@@ -38,7 +38,7 @@ class Dataset(Base):
     uploaded_by = Column(String, ForeignKey("users.id"), nullable=False)
 
     uploader = relationship("User", back_populates="datasets")
-    charts = relationship("Chart", back_populates="dataset")
+    charts = relationship("Chart", back_populates="dataset", cascade="all, delete-orphan")
 
 
 class Chart(Base):
@@ -53,7 +53,7 @@ class Chart(Base):
     dataset = relationship("Dataset", back_populates="charts")
     creator = relationship("User", back_populates="charts")
     versions = relationship("ChartVersion", back_populates="chart", cascade="all, delete-orphan")
-    audit_entries = relationship("AuditEntry", back_populates="chart")
+    audit_entries = relationship("AuditEntry", back_populates="chart", cascade="all, delete-orphan")
 
 
 class ChartVersion(Base):
@@ -92,3 +92,10 @@ class AuditEntry(Base):
 
     chart = relationship("Chart", back_populates="audit_entries")
     user = relationship("User", back_populates="audit_entries")
+
+
+class Setting(Base):
+    __tablename__ = "settings"
+
+    key = Column(String, primary_key=True)
+    value = Column(Text, nullable=False)

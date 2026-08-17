@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.models import AuditEntry, User
 from app.models.schemas import AuditEntryResponse
+from app.api.auth import require_role
 
 router = APIRouter()
 
@@ -11,6 +12,7 @@ router = APIRouter()
 def list_audit_entries(
     chart_id: str = None,
     db: Session = Depends(get_db),
+    user: User = Depends(require_role("admin")),
 ):
     query = db.query(AuditEntry)
     if chart_id:

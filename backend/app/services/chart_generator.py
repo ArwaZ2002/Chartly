@@ -13,6 +13,14 @@ AGGREGATION_MAP = {
     "max": "max",
 }
 
+GRANULARITY_FREQ = {
+    "day": "D",
+    "week": "W",
+    "month": "MS",
+    "quarter": "QS",
+    "year": "YS",
+}
+
 CHART_COLORS = [
     "#3b82f6", "#10b981", "#f59e0b", "#ef4444",
     "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16",
@@ -64,7 +72,14 @@ def generate_chart(
 
     agg_func = AGGREGATION_MAP.get(aggregation, "sum")
 
-    if aggregation == "count":
+    granularity = spec.get("time_granularity")
+    if granularity:
+        df = df.copy()
+        df[dimension] = pd.to_datetime(df[dimension], errors="coerce")
+        df = df.dropna(subset=[dimension])
+        grouper = pd.Grouper(key=dimension, freq=GRANULARITY_FREQ.get(granularity, "MS"))
+        chart_df = df.groupby(grouper, as_index=False).agg(**{metric: (metric, agg_func)})
+    elif aggregation == "count":
         chart_df = df.groupby(dimension, as_index=False).agg(**{metric: (metric, "count")})
     else:
         chart_df = df.groupby(dimension, as_index=False).agg(**{metric: (metric, agg_func)})
