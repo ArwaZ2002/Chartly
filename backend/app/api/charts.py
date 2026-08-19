@@ -1,3 +1,4 @@
+import logging
 import os
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
@@ -14,6 +15,8 @@ from app.services.data_profiler import recommend_chart_type
 from app.services.spec_validation import validate_specification
 from app.api.auth import get_current_user, require_role
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 
@@ -25,11 +28,18 @@ def load_dataset_df(db: Session, dataset_id: str) -> tuple[Dataset, pd.DataFrame
     if not os.path.exists(dataset.file_path):
         raise HTTPException(status_code=404, detail="Dataset file not found")
 
-    ext = os.path.splitext(dataset.file_name)[1].lower()
-    if ext == ".csv":
-        df = pd.read_csv(dataset.file_path)
-    else:
-        df = pd.read_excel(dataset.file_path)
+    try:
+        ext = os.path.splitext(dataset.file_name)[1].lower()
+        if ext == ".csv":
+            df = pd.read_csv(dataset.file_path)
+        else:
+            df = pd.read_excel(dataset.file_path)
+    except Exception:
+        logger.exception("Failed to parse dataset file %s", dataset.file_name)
+        raise HTTPException(
+            status_code=400,
+            detail="Dataset file could not be read or parsed. Please re-upload the file.",
+        )
     return dataset, df
 
 
@@ -61,8 +71,12 @@ def generate_chart_endpoint(
 
     try:
         generate_chart(df, spec_dict)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        logger.exception("Chart generation failed for dataset %s", request.dataset_id)
+        raise HTTPException(
+            status_code=400,
+            detail="Failed to generate the chart from this specification. Adjust the chart settings and try again.",
+        )
 
     chart = Chart(
         dataset_id=request.dataset_id,
@@ -148,8 +162,12 @@ def render_chart(
         chart_json = generate_chart(df, spec)
         chart_html = chart_to_html(chart_json)
         return {"html": chart_html, "json": chart_json}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        logger.exception("Chart render failed for chart %s", chart_id)
+        raise HTTPException(
+            status_code=400,
+            detail="Failed to render the chart. The underlying dataset may be invalid.",
+        )
 
 
 @router.post("/{chart_id}/restore/{version_id}", response_model=ChartResponse)
@@ -213,8 +231,12 @@ def regenerate_chart(
 
     try:
         generate_chart(df, spec_dict)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        logger.exception("Chart regeneration failed for chart %s", chart_id)
+        raise HTTPException(
+            status_code=400,
+            detail="Failed to regenerate the chart from this specification. Adjust the chart settings and try again.",
+        )
 
     chart.specification = spec_dict
     version = ChartVersion(

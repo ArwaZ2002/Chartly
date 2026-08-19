@@ -1,23 +1,28 @@
 /* ============================================================
    Chartly — API client
    Auth state + fetch wrapper + login/logout.
+   The JWT is held in an HttpOnly cookie set by the backend; it is
+   never stored in localStorage. Only the (non-sensitive) user
+   profile is cached locally.
    ============================================================ */
 
 const API_BASE = '/api';
 
 export const api = {
-  token: localStorage.getItem('chartly_token') || null,
   user: JSON.parse(localStorage.getItem('chartly_user') || 'null'),
 
   async apiFetch(path, options = {}) {
     const headers = { ...(options.headers || {}) };
-    if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
     if (options.body && !(options.body instanceof FormData)) {
       headers['Content-Type'] = 'application/json';
       options.body = JSON.stringify(options.body);
     }
-    const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    const res = await fetch(`${API_BASE}${path}`, { ...options, headers, credentials: 'include' });
     if (res.status === 401) {
+      const e = await res.json().catch(() => ({}));
+      if (e.detail && e.detail !== 'Could not validate credentials') {
+        throw new Error(e.detail);
+      }
       this.clearSession();
       location.hash = '#login';
       throw new Error('Session expired');
@@ -30,22 +35,21 @@ export const api = {
   },
 
   clearSession() {
-    this.token = null;
     this.user = null;
-    localStorage.removeItem('chartly_token');
     localStorage.removeItem('chartly_user');
   },
 
   async login(email, password) {
     const data = await this.apiFetch('/auth/login', { method: 'POST', body: { email, password } });
-    this.token = data.token;
     this.user = data.user;
-    localStorage.setItem('chartly_token', data.token);
     localStorage.setItem('chartly_user', JSON.stringify(data.user));
     return data;
   },
 
-  logout() {
+  async logout() {
+    try {
+      await this.apiFetch('/auth/logout', { method: 'POST' });
+    } catch (_) { /* cookie cleared server-side regardless */ }
     this.clearSession();
     location.hash = '#login';
   },

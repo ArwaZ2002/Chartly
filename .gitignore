@@ -28,3 +28,7 @@ uploads/
 # OS
 .DS_Store
 Thumbs.db
+
+# Manual test artifacts
+t_*
+New Text Document.txt

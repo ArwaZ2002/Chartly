@@ -63,8 +63,6 @@ export function icon(name, size = 18) {
 // Core app facade
 // ---------------------------------------------------------------
 const App = {
-  get token() { return api.token; },
-  set token(v) { api.token = v; },
   get user() { return api.user; },
   set user(v) { api.user = v; },
 
@@ -81,7 +79,7 @@ const App = {
 
   async loadTheme() {
     this.applyTheme(localStorage.getItem('chartly_theme') === 'dark' ? 'dark' : 'light');
-    if (!api.token) return this.theme;
+    if (!api.user) return this.theme;
     try {
       const data = await api.apiFetch('/settings/theme');
       this.applyTheme(data.theme);
@@ -89,8 +87,8 @@ const App = {
     return this.theme;
   },
 
-  logout() {
-    api.logout();
+  async logout() {
+    await api.logout();
     this.toast('Signed out', 'info');
   },
 
@@ -184,7 +182,7 @@ const App = {
 
   /* -------- auth guard -------- */
   auth() {
-    if (!api.token) { location.hash = '#login'; return false; }
+    if (!api.user) { location.hash = '#login'; return false; }
     return true;
   },
 
