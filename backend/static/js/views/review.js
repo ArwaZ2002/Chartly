@@ -32,6 +32,58 @@ export const reviewPage = {
       const ds = (Array.isArray(datasets) ? datasets : []).find(d => d.id === chart.dataset_id);
       const plotlyCode = chartUtil.generateCode(spec, chart.dataset_id);
 
+      const versions = chart.versions || [];
+      const currentVersionId = chart.current_version_id || versions[versions.length - 1]?.id;
+      const SPEC_FIELDS = [
+        ['chart_type', 'chart type'],
+        ['dimension', 'X-axis'],
+        ['metric', 'Y-axis'],
+        ['aggregation', 'aggregation'],
+        ['sorting', 'sorting'],
+        ['time_granularity', 'granularity'],
+        ['title', 'title'],
+      ];
+      const diffFields = (prev, next) => {
+        if (!prev) return [];
+        const a = prev.specification || {};
+        const b = next.specification || {};
+        return SPEC_FIELDS.filter(([k]) => (a[k] ?? null) !== (b[k] ?? null)).map(([, label]) => label);
+      };
+      const versionsHtml = versions.length === 0
+        ? '<p style="font-size:13px; color:var(--text-muted);">No versions recorded yet.</p>'
+        : versions.map((v, i) => {
+            const vs = v.specification || {};
+            const isCurrent = v.id === currentVersionId;
+            const changed = diffFields(versions[i - 1], v);
+            const isHistogram = vs.chart_type === 'histogram';
+            const isRaw = chartUtil.rawTypes.includes(vs.chart_type);
+            return `
+            <div class="version-item${isCurrent ? ' current' : ''}">
+              <div class="version-item-main">
+                <div class="version-item-head">
+                  <strong>Version ${i + 1}</strong>
+                  <span class="badge ${chartUtil.accent(vs.chart_type)}">${chartUtil.typeLabel(vs.chart_type || 'chart')}</span>
+                  <span class="version-time">${App.formatDateTime(v.created_at)}</span>
+                </div>
+                <div class="version-item-chips">
+                  <span class="meta-chip"><strong>${App.escapeHtml(vs.title || 'Untitled')}</strong></span>
+                  ${isHistogram
+                    ? `<span class="meta-chip">Column: <strong>${App.escapeHtml(vs.dimension || '—')}</strong></span>`
+                    : `<span class="meta-chip">X: <strong>${App.escapeHtml(vs.dimension || '—')}</strong></span>
+                       <span class="meta-chip">Y: <strong>${App.escapeHtml(vs.metric || '—')}</strong></span>`}
+                  ${!isRaw && vs.aggregation ? `<span class="meta-chip">Method: <strong>${App.escapeHtml(vs.aggregation)}</strong></span>` : ''}
+                </div>
+                ${changed.length ? `<div class="version-diff">${icon('pencil', 12)} Changed: <span>${changed.map(App.escapeHtml).join(', ')}</span></div>` : ''}
+              </div>
+              <div class="version-item-actions">
+                ${isCurrent
+                  ? `<span class="badge green">${icon('check', 12)} Current</span>`
+                  : `<button class="btn btn-secondary btn-sm preview-version" data-ver="${v.id}" data-title="${App.escapeHtml(vs.title || `Version ${i + 1}`)}">${icon('eye', 13)} Preview</button>
+                     ${App.can('edit') ? `<button class="btn btn-secondary btn-sm restore-version" data-ver="${v.id}">${icon('refresh', 13)} Restore</button>` : ''}`}
+              </div>
+            </div>`;
+          }).join('');
+
       document.getElementById('chartDetail').innerHTML = `
         <div class="card" style="padding:22px; margin-bottom:20px;">
           <div class="chart-detail-head">
@@ -125,6 +177,16 @@ export const reviewPage = {
             <label class="form-label">Title</label>
             <input type="text" id="editTitle" class="form-input" placeholder="Chart title">
           </div>
+          <div class="form-group">
+            <label class="form-label">Color palette</label>
+            <div class="palette-grid" id="editPaletteGrid"></div>
+            <div class="custom-colors" id="editCustomColors" style="display:none;">
+              <input type="color" class="custom-color" data-i="0" value="#f97316">
+              <input type="color" class="custom-color" data-i="1" value="#4f46e5">
+              <input type="color" class="custom-color" data-i="2" value="#3b82f6">
+              <input type="color" class="custom-color" data-i="3" value="#10b981">
+            </div>
+          </div>
           <p class="form-hint" id="editTypeHint" style="margin:0 0 14px;"></p>
           <div style="display:flex; gap:10px; justify-content:flex-end;">
             <button class="btn btn-secondary" id="cancelEditBtn">Cancel</button>
@@ -144,27 +206,9 @@ export const reviewPage = {
           </div>
         </div>
         <div class="card" style="padding:20px; margin-top:20px;">
-          <div class="section-title" style="margin-bottom:12px;">Version History <span class="badge slate">${chart.versions?.length || 0}</span></div>
+          <div class="section-title" style="margin-bottom:12px;">Version History <span class="badge slate">${versions.length}</span></div>
           <div class="versions-list">
-            ${(chart.versions || []).length === 0
-              ? '<p style="font-size:13px; color:var(--text-muted);">No versions recorded yet.</p>'
-              : (chart.versions || []).map((v, i) => {
-                  const isCurrent = JSON.stringify(Object.entries(v.specification || {}).sort()) === JSON.stringify(Object.entries(chart.specification || {}).sort());
-                  return `
-                  <div class="version-item">
-                    <div style="display:flex; flex-direction:column; gap:2px;">
-                      <span><strong>Version ${i + 1}</strong> — ${chartUtil.typeLabel(v.specification?.chart_type || 'chart')}</span>
-                      <small style="color:var(--text-muted); font-size:11.5px;">${App.formatDateTime(v.created_at)}</small>
-                    </div>
-                    <div>
-                      ${isCurrent
-                        ? `<span class="badge green">${icon('check', 12)} Current</span>`
-                        : App.can('edit')
-                          ? `<button class="btn btn-secondary btn-sm restore-version" data-ver="${v.id}">${icon('refresh', 13)} Restore</button>`
-                          : ''}
-                    </div>
-                  </div>`;
-                }).join('')}
+            ${versionsHtml}
           </div>
         </div>`;
 
@@ -238,6 +282,54 @@ export const reviewPage = {
       document.getElementById('editType').addEventListener('change', updateEditUI);
       document.getElementById('editDimension').addEventListener('change', updateEditUI);
 
+      // ---- color palette state ----
+      const palettes = chartUtil.palettes;
+      let paletteIndex = 0;
+      let customColors = ['#f97316', '#4f46e5', '#3b82f6', '#10b981'];
+      function currentColors() {
+        if (paletteIndex === palettes.length) return [...customColors];
+        return palettes[paletteIndex].colors;
+      }
+      function syncCustomInputs() {
+        document.querySelectorAll('#editCustomColors .custom-color').forEach(input => {
+          input.value = customColors[Number(input.dataset.i)] || customColors[customColors.length - 1];
+        });
+      }
+      function refreshPaletteUI() {
+        document.querySelectorAll('#editPaletteGrid .palette-btn').forEach(btn => {
+          btn.classList.toggle('active', Number(btn.dataset.idx) === paletteIndex);
+        });
+        document.getElementById('editCustomColors').style.display = paletteIndex === palettes.length ? 'flex' : 'none';
+        syncCustomInputs();
+      }
+      function renderPalettes() {
+        const grid = document.getElementById('editPaletteGrid');
+        const all = [...palettes, { name: 'Custom', colors: customColors }];
+        grid.innerHTML = all.map((p, i) => `
+          <button type="button" class="palette-btn" data-idx="${i}" title="${App.escapeHtml(p.name)}">
+            <span class="palette-dots">${p.colors.map(c => `<i style="background:${App.escapeHtml(c)}"></i>`).join('')}</span>
+            <span class="palette-name">${App.escapeHtml(p.name)}</span>
+          </button>`).join('');
+        grid.querySelectorAll('.palette-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            paletteIndex = Number(btn.dataset.idx);
+            if (paletteIndex === palettes.length) customColors = [...palettes[0].colors].slice(0, 4);
+            refreshPaletteUI();
+          });
+        });
+        refreshPaletteUI();
+      }
+      const existingColors = Array.isArray(spec.colors) ? spec.colors : [];
+      const paletteMatch = palettes.findIndex(p =>
+        existingColors.length && p.colors.slice(0, existingColors.length).join(',') === existingColors.join(',')
+      );
+      if (paletteMatch >= 0) paletteIndex = paletteMatch;
+      else if (existingColors.length) { customColors = existingColors.slice(0, 4); paletteIndex = palettes.length; }
+      renderPalettes();
+      document.querySelectorAll('#editCustomColors .custom-color').forEach(input => {
+        input.addEventListener('input', () => { customColors[Number(input.dataset.i)] = input.value; });
+      });
+
       // Save changes -> regenerate with the edited spec (creates a new version)
       document.getElementById('saveRegenBtn').addEventListener('click', async () => {
         const dimension = document.getElementById('editDimension').value;
@@ -267,6 +359,8 @@ export const reviewPage = {
                 sorting: document.getElementById('editSorting').value || 'none',
                 time_granularity: granGroup.style.display !== 'none' ? document.getElementById('editGranularity').value : null,
                 title,
+                colors: currentColors(),
+                font_family: spec.font_family || null,
               },
             },
           });
@@ -295,6 +389,38 @@ export const reviewPage = {
             location.reload();
           } catch (err) { App.toast(err.message, 'error'); }
         });
+      });
+
+      // Preview a previous version in a modal
+      const previewVersion = async (versionId, title) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+          <div class="modal preview-modal">
+            <div class="preview-modal-head">
+              <h3>${App.escapeHtml(title || 'Version Preview')}</h3>
+              <button class="btn-icon" data-close>${icon('x', 16)}</button>
+            </div>
+            <div class="preview-modal-body">${App.loading('Rendering version...')}</div>
+          </div>`;
+        document.body.appendChild(overlay);
+        const close = () => overlay.remove();
+        const onKey = (e) => { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); } };
+        overlay.addEventListener('click', (e) => {
+          if (e.target.closest('[data-close]') || e.target === overlay) { close(); document.removeEventListener('keydown', onKey); }
+        });
+        document.addEventListener('keydown', onKey);
+        try {
+          const renderData = await api.apiFetch(`/charts/${chartId}/render?version_id=${versionId}`);
+          const json = typeof renderData.json === 'string' ? JSON.parse(renderData.json) : renderData.json;
+          const body = overlay.querySelector('.preview-modal-body');
+          await chartUtil.render(body, json);
+        } catch (err) {
+          overlay.querySelector('.preview-modal-body').innerHTML = App.errBlock('Failed to render version: ' + err.message);
+        }
+      };
+      document.querySelectorAll('.preview-version').forEach(btn => {
+        btn.addEventListener('click', () => previewVersion(btn.dataset.ver, btn.dataset.title));
       });
 
       const saveTemplateBtn = document.getElementById('saveTemplateBtn');

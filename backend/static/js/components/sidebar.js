@@ -20,9 +20,9 @@ export const sidebar = {
       nav.push(
         { key: 'audit', label: 'Audit Trail', icon: 'audit' },
         { key: 'users', label: 'Users', icon: 'users' },
-        { key: 'settings', label: 'Settings', icon: 'settings' },
       );
     }
+    nav.push({ key: 'settings', label: 'Settings', icon: 'settings' });
     const isActive = (k) => activeKey === k || (activeKey === 'charts' && ['charts'].includes(k) && k === 'charts');
     return `
       <aside class="sidebar" id="sidebar">

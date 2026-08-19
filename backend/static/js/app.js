@@ -51,6 +51,8 @@ const ICONS = {
   eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
   download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
 };
 
 export function icon(name, size = 18) {
@@ -67,8 +69,25 @@ const App = {
   set user(v) { api.user = v; },
 
   settings: {},
+  theme: 'light',
 
   login: (email, password) => api.login(email, password),
+
+  applyTheme(theme) {
+    this.theme = theme === 'dark' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = this.theme;
+    localStorage.setItem('chartly_theme', this.theme);
+  },
+
+  async loadTheme() {
+    this.applyTheme(localStorage.getItem('chartly_theme') === 'dark' ? 'dark' : 'light');
+    if (!api.token) return this.theme;
+    try {
+      const data = await api.apiFetch('/settings/theme');
+      this.applyTheme(data.theme);
+    } catch (_) {}
+    return this.theme;
+  },
 
   logout() {
     api.logout();
@@ -212,4 +231,4 @@ router.registerPage(settingsPage);
 // Router bootstrap
 // ---------------------------------------------------------------
 window.addEventListener('hashchange', () => { router.render(); window.scrollTo(0, 0); });
-window.addEventListener('DOMContentLoaded', async () => { await App.loadSettings(); router.render(); });
+window.addEventListener('DOMContentLoaded', async () => { await App.loadTheme(); await App.loadSettings(); router.render(); });

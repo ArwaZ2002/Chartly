@@ -7,6 +7,28 @@ export const chart = {
   aggTypes: ['bar', 'line', 'area', 'pie', 'scatter', 'treemap', 'funnel'],
   rawTypes: ['histogram', 'box', 'violin'],
 
+  palettes: [
+    { name: 'Default', colors: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'] },
+    { name: 'Sunset', colors: ['#f97316', '#ea580c', '#f59e0b', '#e11d48', '#fb7185', '#fde68a'] },
+    { name: 'Ocean', colors: ['#0ea5e9', '#2563eb', '#06b6d4', '#22d3ee', '#1e40af', '#67e8f9'] },
+    { name: 'Forest', colors: ['#16a34a', '#65a30d', '#0d9488', '#4ade80', '#84cc16', '#14b8a6'] },
+    { name: 'Royal', colors: ['#4f46e5', '#7c3aed', '#8b5cf6', '#a78bfa', '#6d28d9', '#c4b5fd'] },
+    { name: 'Rose', colors: ['#e11d48', '#be123c', '#f43f5e', '#fda4af', '#9f1239', '#fb7185'] },
+    { name: 'Mono', colors: ['#111827', '#4b5563', '#9ca3af', '#6b7280', '#374151', '#d1d5db'] },
+  ],
+
+  fonts: [
+    { value: '', label: 'System default' },
+    { value: "'Poppins', 'Inter', sans-serif", label: 'Poppins' },
+    { value: 'Georgia, serif', label: 'Georgia' },
+    { value: "'Courier New', monospace", label: 'Courier New' },
+    { value: 'Verdana, sans-serif', label: 'Verdana' },
+  ],
+
+  defaultColors() {
+    return this.palettes[0].colors;
+  },
+
   accent(type) {
     return { bar: 'orange', line: 'green', pie: 'purple', scatter: 'blue', area: 'indigo', histogram: 'green', box: 'orange', violin: 'purple', treemap: 'blue', funnel: 'indigo' }[type] || 'slate';
   },
@@ -21,7 +43,16 @@ export const chart = {
     el.style.width = '100%';
     el.style.minHeight = '380px';
     container.appendChild(el);
-    Plotly.newPlot(el, renderData.data, renderData.layout, { responsive: true, displayModeBar: true, locale: 'en-US' });
+    const dark = document.documentElement.dataset.theme === 'dark';
+    const layout = {
+      ...(renderData.layout || {}),
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+      font: { ...((renderData.layout && renderData.layout.font) || {}), color: dark ? '#f3e9e1' : '#111827' },
+      xaxis: { ...((renderData.layout && renderData.layout.xaxis) || {}), gridcolor: dark ? 'rgba(255, 255, 255, 0.08)' : undefined },
+      yaxis: { ...((renderData.layout && renderData.layout.yaxis) || {}), gridcolor: dark ? 'rgba(255, 255, 255, 0.08)' : undefined },
+    };
+    Plotly.newPlot(el, renderData.data, layout, { responsive: true, displayModeBar: true, locale: 'en-US' });
   },
 
   async downloadImage(format, container, title) {

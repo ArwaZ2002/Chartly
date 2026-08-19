@@ -30,6 +30,15 @@ CHART_COLORS = [
 RAW_TYPES = {"histogram", "box", "violin"}
 
 
+def _resolve_colors(spec: dict[str, Any]) -> list[str]:
+    colors = spec.get("colors")
+    if isinstance(colors, list):
+        cleaned = [c for c in colors if isinstance(c, str) and c.strip()]
+        if cleaned:
+            return cleaned[:8]
+    return CHART_COLORS
+
+
 def generate_chart(
     df: pd.DataFrame,
     spec: dict[str, Any],
@@ -40,6 +49,7 @@ def generate_chart(
     aggregation = spec.get("aggregation", "sum")
     sorting = spec.get("sorting", "none")
     title = spec.get("title", f"{metric} by {dimension}")
+    colors = _resolve_colors(spec)
 
     if chart_type in RAW_TYPES:
         if chart_type == "histogram":
@@ -48,7 +58,7 @@ def generate_chart(
                 x=dimension,
                 title=title,
                 nbins=min(40, max(10, int(df.shape[0] / 10) or 10)),
-                color_discrete_sequence=CHART_COLORS,
+                color_discrete_sequence=colors,
             )
         elif chart_type == "box":
             fig = px.box(
@@ -56,7 +66,7 @@ def generate_chart(
                 x=dimension,
                 y=metric,
                 title=title,
-                color_discrete_sequence=CHART_COLORS,
+                color_discrete_sequence=colors,
             )
         else:  # violin
             fig = px.violin(
@@ -66,9 +76,9 @@ def generate_chart(
                 title=title,
                 box=True,
                 points=False,
-                color_discrete_sequence=CHART_COLORS,
+                color_discrete_sequence=colors,
             )
-        return _finalize(fig)
+        return _finalize(fig, spec)
 
     agg_func = AGGREGATION_MAP.get(aggregation, "sum")
 
@@ -95,7 +105,7 @@ def generate_chart(
             x=dimension,
             y=metric,
             title=title,
-            color_discrete_sequence=CHART_COLORS,
+            color_discrete_sequence=colors,
         )
     elif chart_type == "line":
         fig = px.line(
@@ -104,7 +114,7 @@ def generate_chart(
             y=metric,
             title=title,
             markers=True,
-            color_discrete_sequence=CHART_COLORS,
+            color_discrete_sequence=colors,
         )
     elif chart_type == "area":
         fig = px.area(
@@ -112,7 +122,7 @@ def generate_chart(
             x=dimension,
             y=metric,
             title=title,
-            color_discrete_sequence=CHART_COLORS,
+            color_discrete_sequence=colors,
         )
     elif chart_type == "pie":
         fig = px.pie(
@@ -120,7 +130,7 @@ def generate_chart(
             names=dimension,
             values=metric,
             title=title,
-            color_discrete_sequence=CHART_COLORS,
+            color_discrete_sequence=colors,
         )
     elif chart_type == "scatter":
         fig = px.scatter(
@@ -128,7 +138,7 @@ def generate_chart(
             x=dimension,
             y=metric,
             title=title,
-            color_discrete_sequence=CHART_COLORS,
+            color_discrete_sequence=colors,
         )
     elif chart_type == "treemap":
         fig = px.treemap(
@@ -136,7 +146,7 @@ def generate_chart(
             path=[dimension],
             values=metric,
             title=title,
-            color_discrete_sequence=CHART_COLORS,
+            color_discrete_sequence=colors,
         )
     elif chart_type == "funnel":
         fig = px.funnel(
@@ -144,18 +154,19 @@ def generate_chart(
             x=metric,
             y=dimension,
             title=title,
-            color_discrete_sequence=CHART_COLORS,
+            color_discrete_sequence=colors,
         )
     else:
         raise ValueError(f"Unsupported chart type: {chart_type}")
 
-    return _finalize(fig)
+    return _finalize(fig, spec)
 
 
-def _finalize(fig) -> str:
+def _finalize(fig, spec: dict[str, Any]) -> str:
+    font_family = spec.get("font_family")
     fig.update_layout(
         template="plotly_white",
-        font=dict(family="system-ui, sans-serif"),
+        font=dict(family=font_family or "system-ui, sans-serif"),
         margin=dict(l=40, r=40, t=60, b=40),
     )
 

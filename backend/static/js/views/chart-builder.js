@@ -91,6 +91,36 @@ export const chartBuilderPage = {
             <label class="form-label">Title</label>
             <input type="text" id="chartTitle" class="form-input" placeholder="e.g. Revenue by Region">
           </div>
+          <div class="style-section">
+            <div class="form-group">
+              <label class="form-label">Theme template</label>
+              <select id="themeTemplateSelect" class="form-select">
+                <option value="">None — configure manually</option>
+              </select>
+              <p class="form-hint">Apply saved colors and font to this chart.</p>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Color palette</label>
+              <div class="palette-grid" id="paletteGrid"></div>
+              <div class="custom-colors" id="customColors" style="display:none;">
+                <input type="color" class="custom-color" data-i="0" value="#f97316">
+                <input type="color" class="custom-color" data-i="1" value="#4f46e5">
+                <input type="color" class="custom-color" data-i="2" value="#3b82f6">
+                <input type="color" class="custom-color" data-i="3" value="#10b981">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Font</label>
+              <select id="chartFont" class="form-select">
+                <option value="">System default</option>
+                <option value="'Poppins', 'Inter', sans-serif">Poppins</option>
+                <option value="Georgia, serif">Georgia</option>
+                <option value="'Courier New', monospace">Courier New</option>
+                <option value="Verdana, sans-serif">Verdana</option>
+              </select>
+            </div>
+            <button class="btn btn-secondary" id="saveThemeBtn" style="width:100%;">${icon('template', 14)} Save as Theme Template</button>
+          </div>
           <div class="config-summary" id="configSummary" style="display:none;"></div>
           <button class="btn btn-primary" id="createChartBtn" style="width:100%; padding:11px;">${icon('chart', 16)} Generate Chart</button>
           <div class="recommend-box" style="margin-top:18px;">
@@ -115,6 +145,57 @@ export const chartBuilderPage = {
     const granGroup = document.getElementById('granularityGroup');
     let datasets = [];
     let currentDs = null;
+    let themeTemplates = [];
+
+    // ---- chart style state ----
+    const palettes = chart.palettes;
+    let paletteIndex = 0;
+    let customColors = ['#f97316', '#4f46e5', '#3b82f6', '#10b981'];
+
+    function currentColors() {
+      if (paletteIndex === palettes.length) return [...customColors];
+      return palettes[paletteIndex].colors;
+    }
+    function currentFont() {
+      return document.getElementById('chartFont').value;
+    }
+    function syncCustomInputs() {
+      document.querySelectorAll('.custom-color').forEach(input => {
+        input.value = customColors[Number(input.dataset.i)] || customColors[customColors.length - 1];
+      });
+    }
+    function refreshPaletteUI() {
+      document.querySelectorAll('.palette-btn').forEach(btn => {
+        btn.classList.toggle('active', Number(btn.dataset.idx) === paletteIndex);
+      });
+      document.getElementById('customColors').style.display = paletteIndex === palettes.length ? 'flex' : 'none';
+      syncCustomInputs();
+    }
+    function renderPalettes() {
+      const grid = document.getElementById('paletteGrid');
+      const all = [...palettes, { name: 'Custom', colors: customColors }];
+      grid.innerHTML = all.map((p, i) => `
+        <button type="button" class="palette-btn" data-idx="${i}" title="${App.escapeHtml(p.name)}">
+          <span class="palette-dots">${p.colors.map(c => `<i style="background:${App.escapeHtml(c)}"></i>`).join('')}</span>
+          <span class="palette-name">${App.escapeHtml(p.name)}</span>
+        </button>`).join('');
+      grid.querySelectorAll('.palette-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          paletteIndex = Number(btn.dataset.idx);
+          if (paletteIndex === palettes.length) customColors = [...palettes[0].colors].slice(0, 4);
+          refreshPaletteUI();
+        });
+      });
+      refreshPaletteUI();
+    }
+    function applyTheme(tpl) {
+      if (!tpl || !tpl.colors || !tpl.colors.length) return;
+      customColors = tpl.colors.slice(0, 4);
+      paletteIndex = palettes.length;
+      const fontEl = document.getElementById('chartFont');
+      if (tpl.font_family && [...fontEl.options].some(o => o.value === tpl.font_family)) fontEl.value = tpl.font_family;
+      refreshPaletteUI();
+    }
 
     function populateColumns(ds) {
       if (!ds || !ds.columns) return;
@@ -232,13 +313,61 @@ export const chartBuilderPage = {
         if (preset.time_granularity) document.getElementById('granularity').value = preset.time_granularity;
         if (preset.dimension && dimEl.querySelector(`option[value="${CSS.escape(preset.dimension)}"]`)) dimEl.value = preset.dimension;
         if (preset.metric && metEl.querySelector(`option[value="${CSS.escape(preset.metric)}"]`)) metEl.value = preset.metric;
+        if (Array.isArray(preset.colors) && preset.colors.length) {
+          customColors = preset.colors.slice(0, 4);
+          paletteIndex = palettes.length;
+        }
+        if (preset.font_family && [...document.getElementById('chartFont').options].some(o => o.value === preset.font_family)) {
+          document.getElementById('chartFont').value = preset.font_family;
+        }
       } else {
         document.getElementById('chartType').value = defaultType;
       }
       updateTypeUI();
+      renderPalettes();
     } catch (e) {
       datasetSelect.innerHTML = '<option value="">Failed to load datasets</option>';
     }
+
+    document.querySelectorAll('.custom-color').forEach(input => {
+      input.addEventListener('input', () => {
+        customColors[Number(input.dataset.i)] = input.value;
+      });
+    });
+    document.getElementById('saveThemeBtn').addEventListener('click', async () => {
+      const name = await App.promptDialog({
+        title: 'Save theme template',
+        message: 'Theme templates store the color palette and font so you can reuse them on other charts.',
+        keyLabel: 'Theme template name',
+        defaultValue: document.getElementById('chartTitle').value.trim() || 'My Theme',
+        placeholder: 'e.g. Brand Orange',
+      });
+      if (!name) return;
+      try {
+        await api.apiFetch('/theme-templates/', {
+          method: 'POST',
+          body: { name, colors: currentColors(), font_family: currentFont() || null },
+        });
+        App.toast('Theme template saved');
+        loadThemeTemplates();
+      } catch (err) { App.toast(err.message, 'error'); }
+    });
+
+    async function loadThemeTemplates() {
+      const sel = document.getElementById('themeTemplateSelect');
+      try {
+        const data = await api.apiFetch('/theme-templates/');
+        themeTemplates = Array.isArray(data) ? data : [];
+      } catch (_) { themeTemplates = []; }
+      sel.innerHTML = '<option value="">None — configure manually</option>'
+        + themeTemplates.map(t => `<option value="${t.id}">${App.escapeHtml(t.name)}</option>`).join('');
+    }
+    document.getElementById('themeTemplateSelect').addEventListener('change', (e) => {
+      const t = themeTemplates.find(x => x.id === e.target.value);
+      if (t) applyTheme(t);
+      e.target.value = '';
+    });
+    loadThemeTemplates();
 
     datasetSelect.addEventListener('change', () => {
       const id = datasetSelect.value;
@@ -278,6 +407,8 @@ export const chartBuilderPage = {
               sorting: document.getElementById('sorting').value || 'none',
               time_granularity: granGroup.style.display !== 'none' ? document.getElementById('granularity').value : null,
               title,
+              colors: currentColors(),
+              font_family: currentFont() || null,
             },
           },
         });

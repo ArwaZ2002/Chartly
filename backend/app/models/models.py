@@ -52,7 +52,12 @@ class Chart(Base):
 
     dataset = relationship("Dataset", back_populates="charts")
     creator = relationship("User", back_populates="charts")
-    versions = relationship("ChartVersion", back_populates="chart", cascade="all, delete-orphan")
+    versions = relationship(
+        "ChartVersion",
+        back_populates="chart",
+        cascade="all, delete-orphan",
+        order_by=lambda: (ChartVersion.created_at, ChartVersion.id),
+    )
     audit_entries = relationship("AuditEntry", back_populates="chart", cascade="all, delete-orphan")
 
 
@@ -74,6 +79,19 @@ class Template(Base):
     name = Column(String, nullable=False)
     chart_type = Column(String, nullable=False)
     specification = Column(JSON, nullable=False)
+    created_by = Column(String, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    creator = relationship("User")
+
+
+class ThemeTemplate(Base):
+    __tablename__ = "theme_templates"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    name = Column(String, nullable=False)
+    colors = Column(JSON, nullable=False, default=list)
+    font_family = Column(String, nullable=True)
     created_by = Column(String, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 

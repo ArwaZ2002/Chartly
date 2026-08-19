@@ -71,6 +71,7 @@ class ChartSpecification(BaseModel):
     time_granularity: Optional[str] = None
     title: Optional[str] = None
     colors: Optional[list[str]] = None
+    font_family: Optional[str] = None
 
 
 class ChartGenerateRequest(BaseModel):
@@ -84,6 +85,7 @@ class ChartResponse(BaseModel):
     specification: ChartSpecification
     created_at: datetime
     created_by: str
+    current_version_id: Optional[str] = None
     versions: list[dict] = []
 
     class Config:
@@ -117,6 +119,25 @@ class TemplateResponse(BaseModel):
     name: str
     chart_type: str
     specification: ChartSpecification
+    created_by: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Theme Template (chart styling: colors + font)
+class ThemeTemplateCreate(BaseModel):
+    name: str
+    colors: list[str]
+    font_family: Optional[str] = None
+
+
+class ThemeTemplateResponse(BaseModel):
+    id: str
+    name: str
+    colors: list[str]
+    font_family: Optional[str] = None
     created_by: str
     created_at: datetime
 

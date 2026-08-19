@@ -60,6 +60,7 @@ export const loginPage = {
       errEl.style.display = 'none';
       try {
         await api.login(email, password);
+        await App.loadTheme();
         location.hash = '#dashboard';
       } catch (err) {
         errEl.innerHTML = App.errBlock(err.message);

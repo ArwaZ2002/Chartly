@@ -19,10 +19,6 @@ export const dashboardPage = {
           <h1>Welcome back, ${App.escapeHtml(App.user?.name || 'there')}</h1>
           <p class="subtitle">Here's what's happening in your analysis workspace.</p>
         </div>
-        <div class="page-header-actions">
-          ${App.can('upload') ? `<a href="#upload" class="btn btn-secondary">${icon('upload', 16)} Upload Data</a>` : ''}
-          ${App.can('create') ? `<a href="#charts/new" class="btn btn-primary">${icon('plus', 16)} Create Chart</a>` : ''}
-        </div>
       </div>
 
       <div class="stats-grid" id="statsGrid">
