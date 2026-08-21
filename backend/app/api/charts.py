@@ -11,6 +11,7 @@ from app.models.schemas import (
     ChartRecommendation,
 )
 from app.services.chart_generator import generate_chart, chart_to_html
+from app.services.data_io import get_dataset_file, parse_dataset_bytes
 from app.services.data_profiler import recommend_chart_type
 from app.services.spec_validation import validate_specification
 from app.api.auth import get_current_user, require_role
@@ -25,15 +26,12 @@ def load_dataset_df(db: Session, dataset_id: str) -> tuple[Dataset, pd.DataFrame
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
-    if not os.path.exists(dataset.file_path):
+    if not dataset.file_data and (not dataset.file_path or not os.path.exists(dataset.file_path)):
         raise HTTPException(status_code=404, detail="Dataset file not found")
 
     try:
-        ext = os.path.splitext(dataset.file_name)[1].lower()
-        if ext == ".csv":
-            df = pd.read_csv(dataset.file_path)
-        else:
-            df = pd.read_excel(dataset.file_path)
+        file_name, data = get_dataset_file(dataset)
+        df = parse_dataset_bytes(file_name, data)
     except Exception:
         logger.exception("Failed to parse dataset file %s", dataset.file_name)
         raise HTTPException(

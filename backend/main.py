@@ -95,13 +95,6 @@ STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
-@app.on_event("startup")
-def startup():
-    init_db()
-    _seed_default_user()
-    _seed_default_settings()
-
-
 def _seed_default_settings():
     from app.core.database import SessionLocal
     from app.models.models import Setting
@@ -158,3 +151,11 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+# Initialize the schema and demo data at import time (not in a startup event)
+# so it also runs reliably on serverless cold starts (e.g. Vercel), where
+# lifespan ordering is not guaranteed. All operations are idempotent.
+init_db()
+_seed_default_user()
+_seed_default_settings()

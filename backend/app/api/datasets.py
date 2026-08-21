@@ -1,6 +1,5 @@
 import logging
 import os
-from uuid import uuid4
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
@@ -10,6 +9,7 @@ from app.core.database import get_db
 from app.core.config import get_settings
 from app.models.models import Dataset, User
 from app.models.schemas import DatasetResponse, ColumnProfileResponse
+from app.services.data_io import parse_dataset_bytes, get_dataset_file
 from app.services.data_profiler import profile_dataset
 from app.api.auth import get_current_user, require_role
 
@@ -17,11 +17,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 settings = get_settings()
-
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-CHUNK_SIZE = 1024 * 1024  # 1 MB chunks while streaming the upload to disk
 
 # Lenient MIME allowlist per extension. application/octet-stream and an
 # empty/missing content type are always accepted because browsers often
@@ -50,17 +45,15 @@ def _validate_mime(ext: str, content_type: str | None) -> None:
     )
 
 
-def _parse_dataset(file_path: str, ext: str) -> pd.DataFrame:
+def _parse_dataset(file_name: str, data: bytes) -> pd.DataFrame:
     try:
-        if ext == ".csv":
-            return pd.read_csv(file_path)
-        return pd.read_excel(file_path)
+        return parse_dataset_bytes(file_name, data)
     except Exception:
-        logger.exception("Failed to parse uploaded file %s", os.path.basename(file_path))
+        logger.exception("Failed to parse uploaded file %s", file_name)
         raise HTTPException(
             status_code=400,
             detail=(
-                f"Unable to parse the uploaded file as {_format_label(ext)}. "
+                f"Unable to parse the uploaded file as {_format_label(os.path.splitext(file_name)[1])}. "
                 "The file may be corrupted or in an unsupported format."
             ),
         )
@@ -82,30 +75,16 @@ async def upload_dataset(
     _validate_mime(file_ext, file.content_type)
 
     max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
-    safe_name = f"{uuid4().hex}_{os.path.basename(file.filename)}"
-    file_path = os.path.join(UPLOAD_DIR, safe_name)
+    content = await file.read()
+    if len(content) == 0:
+        raise HTTPException(status_code=400, detail="The uploaded file is empty")
+    if len(content) > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File exceeds the {settings.MAX_UPLOAD_SIZE_MB} MB upload limit",
+        )
 
-    total = 0
-    try:
-        with open(file_path, "wb") as out:
-            while chunk := await file.read(CHUNK_SIZE):
-                total += len(chunk)
-                if total > max_bytes:
-                    raise HTTPException(
-                        status_code=413,
-                        detail=f"File exceeds the {settings.MAX_UPLOAD_SIZE_MB} MB upload limit",
-                    )
-                out.write(chunk)
-    except Exception:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        raise
-
-    try:
-        df = _parse_dataset(file_path, file_ext)
-    except HTTPException:
-        os.remove(file_path)
-        raise
+    df = _parse_dataset(file.filename, content)
 
     columns = profile_dataset(df)
 
@@ -113,7 +92,8 @@ async def upload_dataset(
         name=os.path.splitext(file.filename)[0],
         display_name=os.path.splitext(file.filename)[0],
         file_name=file.filename,
-        file_path=file_path,
+        file_data=content,
+        file_path=None,
         columns_profile=columns,
         row_count=len(df),
         uploaded_by=user.id,
@@ -217,8 +197,8 @@ def preview_dataset(
         raise HTTPException(status_code=404, detail="Dataset not found")
 
     try:
-        file_ext = os.path.splitext(dataset.file_name)[1].lower()
-        df = _parse_dataset(dataset.file_path, file_ext)
+        file_name, data = get_dataset_file(dataset)
+        df = _parse_dataset(file_name, data)
     except HTTPException:
         raise
     except Exception:
@@ -243,7 +223,7 @@ def delete_dataset(
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
-    if os.path.exists(dataset.file_path):
+    if dataset.file_path and os.path.exists(dataset.file_path):
         os.remove(dataset.file_path)
 
     db.delete(dataset)

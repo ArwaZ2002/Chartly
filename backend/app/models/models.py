@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Integer, Text, ForeignKey, JSON
+from sqlalchemy import Column, String, DateTime, Integer, Text, ForeignKey, JSON, LargeBinary
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -31,7 +31,11 @@ class Dataset(Base):
     name = Column(String, nullable=False)
     display_name = Column(String, nullable=True)
     file_name = Column(String, nullable=False)
-    file_path = Column(String, nullable=False)
+    # Raw uploaded file bytes, stored in the database so the app also works on
+    # serverless platforms with an ephemeral filesystem (e.g. Vercel).
+    file_data = Column(LargeBinary, nullable=True)
+    # Legacy location for local disk storage; empty on serverless deployments.
+    file_path = Column(String, nullable=True)
     columns_profile = Column(JSON, nullable=False)
     row_count = Column(Integer, nullable=False)
     uploaded_at = Column(DateTime, default=datetime.utcnow)

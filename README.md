@@ -18,7 +18,8 @@ Internal data analysis platform: upload CSV/Excel files, explore profiles, and b
 
 | Layer    | Tech |
 |----------|------|
-| Backend  | Python, FastAPI, SQLAlchemy, SQLite |
+| Backend  | Python, FastAPI, SQLAlchemy |
+| Database | SQLite (local) / Postgres via Neon (Vercel) |
 | Charts   | Plotly Express / Plotly.js |
 | Frontend | Vanilla JS single-page app (no build step), served by FastAPI |
 
@@ -68,10 +69,12 @@ The login form does not pre-fill anything — enter the demo credentials manuall
 │   │   ├── api/              # Routes: auth, datasets, charts, templates, audit
 │   │   ├── core/             # Config & database
 │   │   ├── models/           # SQLAlchemy models & Pydantic schemas
-│   │   └── services/         # Chart generation & data profiling
+│   │   └── services/         # Chart generation, data profiling & file I/O
 │   ├── static/               # Frontend SPA: index.html, css/, js/ (router, api, views/, components/)
-│   ├── uploads/              # Uploaded dataset files (gitignored)
 │   └── requirements.txt
+├── api/index.py              # Vercel serverless entrypoint
+├── vercel.json               # Vercel function & rewrite config
+├── requirements.txt          # Root copy used by Vercel (keep in sync with backend/)
 ├── docs/                     # Business requirements documents
 └── .gitignore
 ```
@@ -109,6 +112,61 @@ Environment variables (`backend/.env`, see `.env.example`):
 | `LOGIN_RATE_WINDOW_SECONDS` | `60` | Rate-limit window |
 | `MAX_UPLOAD_SIZE_MB` | `50` | Maximum dataset upload size |
 | `TRUST_PROXY` | `false` | Set `true` behind a trusted reverse proxy to read client IPs from `X-Forwarded-For` |
+
+## Deploying to Vercel (free)
+
+Chartly runs on Vercel serverless functions with **Neon Postgres** as the
+database. Uploaded dataset files are stored as raw bytes in the database, so
+no persistent filesystem is needed — this is what makes a fully free (no
+credit card) serverless deployment possible.
+
+The repo is already wired for it:
+
+- [`api/index.py`](api/index.py) — serverless entrypoint that imports the FastAPI app
+- [`vercel.json`](vercel.json) — routes all traffic to the function (Python 3.12)
+- [`requirements.txt`](requirements.txt) — root copy Vercel uses to install deps
+- `app/core/database.py` — accepts plain `postgres://...` URLs (psycopg v3)
+- Schema and demo users are seeded on every cold start (idempotent)
+
+### One-time setup
+
+1. Push this repository to GitHub.
+2. Create a free account at [neon.tech](https://neon.tech) (no credit card) and
+   create a project — you get a connection string like
+   `postgresql://user:pass@ep-xxx.region.aws.neon.tech/chartly?sslmode=require`.
+3. Create a free account at [vercel.com](https://vercel.com) (no credit card),
+   then **Add New → Project → Import** your GitHub repo. Vercel detects the
+   `vercel.json` automatically.
+4. In the project's **Settings → Environment Variables**, add:
+   | Variable | Value |
+   |----------|-------|
+   | `DATABASE_URL` | your Neon connection string |
+   | `SECRET_KEY` | `python -c "import secrets; print(secrets.token_urlsafe(64))"` |
+   | `ENVIRONMENT` | `production` |
+   | `COOKIE_SECURE` | `true` |
+   | `TRUST_PROXY` | `true` |
+   | `MAX_UPLOAD_SIZE_MB` | `4` (Vercel free tier request-body limit is 4.5 MB) |
+   | `ALLOWED_ORIGINS` | your `*.vercel.app` URL (optional; same-origin requests are always allowed) |
+5. **Deploy**. Open the URL — demo accounts are seeded automatically:
+   - Admin: `admin@chartly.demo` / `admin-demo-123`
+   - Analyst: `analyst@chartly.demo` / `analyst-demo-123`
+   - Viewer: `viewer@chartly.demo` / `viewer-demo-123`
+
+### Free-tier limits to know
+
+- **Uploads capped at ~4 MB** on Vercel's free plan (request-body limit).
+  Lower `MAX_UPLOAD_SIZE_MB` accordingly.
+- **Neon free** gives 0.5 GB of storage — uploaded files count against it.
+  Delete old datasets to stay within limits.
+- The first request after a cold start takes a few seconds (pandas is a large
+  dependency); subsequent requests are fast.
+- Vercel free deployments are public by default — anyone with the URL can see
+  the app, so the seeded demo accounts are intentionally fake.
+
+### Development
+
+Local development is unchanged: SQLite via `DATABASE_URL=sqlite:///./chartly.db`,
+uploads stored in the DB. No `uploads/` directory is used anymore.
 
 ## Documentation
 
