@@ -1,11 +1,3 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": {
-    "backend/main.py": {
-      "includeFiles": "backend/static/**"
-    }
-  },
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/backend/main.py" }
-  ]
+  "$schema": "https://openapi.vercel.sh/vercel.json"
 }

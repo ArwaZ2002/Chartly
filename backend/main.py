@@ -91,8 +91,16 @@ app.add_middleware(
 
 app.include_router(api_router, prefix="/api")
 
-STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+# On Vercel, public/** files are served by the CDN. The function only needs
+# to resolve the path for FileResponse; the actual bytes come from the CDN.
+# For local development, StaticFiles serves /static/... from backend/static/.
+_is_vercel = os.environ.get("VERCEL") == "1"
+BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BACKEND_DIR, "static")
+VERCEL_STATIC_DIR = os.path.join(os.path.dirname(BACKEND_DIR), "public", "static")
+
+if not _is_vercel:
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 def _seed_default_settings():
@@ -145,7 +153,8 @@ def _seed_default_user():
 
 @app.get("/")
 def root():
-    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+    static_dir = VERCEL_STATIC_DIR if _is_vercel else STATIC_DIR
+    return FileResponse(os.path.join(static_dir, "index.html"))
 
 
 @app.get("/health")
