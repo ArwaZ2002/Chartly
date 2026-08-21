@@ -4,7 +4,7 @@ import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.config import get_settings
 from app.core.database import init_db
@@ -96,7 +96,31 @@ app.include_router(api_router, prefix="/api")
 # /static/css and /static/js — the HTML references those paths.
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BACKEND_DIR, "static")
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+if not os.environ.get("VERCEL"):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+INDEX_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chartly — Data Analysis Platform</title>
+  <meta name="description" content="Transform raw data into beautiful charts in minutes">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23f97316'%3E%3Crect x='3' y='12' width='4' height='9' rx='1'/%3E%3Crect x='10' y='8' width='4' height='13' rx='1'/%3E%3Crect x='17' y='3' width='4' height='18' rx='1'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script>
+    document.documentElement.dataset.theme = localStorage.getItem('chartly_theme') || 'light';
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <script src="https://cdn.plot.ly/plotly-2.35.0.min.js" charset="utf-8"></script>
+  <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>"""
 
 
 def _seed_default_settings():
@@ -149,7 +173,7 @@ def _seed_default_user():
 
 @app.get("/")
 def root():
-    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+    return HTMLResponse(INDEX_HTML)
 
 
 @app.get("/health")
