@@ -101,6 +101,7 @@ def generate_chart(
         chart_df = chart_df.sort_values(metric, ascending=False)
 
     if chart_type == "bar":
+        bar_labels = [_format_label_value(v, chart_type) for v in chart_df[metric]] if spec.get("show_labels") else None
         if orientation == "horizontal":
             fig = px.bar(
                 chart_df,
@@ -109,6 +110,7 @@ def generate_chart(
                 orientation="h",
                 title=title,
                 color_discrete_sequence=colors,
+                text=bar_labels,
             )
         else:
             fig = px.bar(
@@ -117,6 +119,7 @@ def generate_chart(
                 y=metric,
                 title=title,
                 color_discrete_sequence=colors,
+                text=bar_labels,
             )
     elif chart_type == "line":
         fig = px.line(
@@ -160,12 +163,14 @@ def generate_chart(
             color_discrete_sequence=colors,
         )
     elif chart_type == "funnel":
+        funnel_labels = [_format_label_value(v, chart_type) for v in chart_df[metric]] if spec.get("show_labels") else None
         fig = px.funnel(
             chart_df,
             x=metric,
             y=dimension,
             title=title,
             color_discrete_sequence=colors,
+            text=funnel_labels,
         )
     else:
         raise ValueError(f"Unsupported chart type: {chart_type}")
@@ -188,45 +193,77 @@ def _apply_labels(fig, chart_type: str, chart_df: pd.DataFrame, metric: str, spe
         return
 
     values = chart_df[metric]
+    labels = [_format_label_value(v, chart_type) for v in values]
 
     if chart_type == "bar":
-        labels = [_format_label_value(v, chart_type) for v in values]
-        fig.update_traces(text=labels, textposition="outside")
-        fig.update_layout(uniformtext_minsize=8, uniformtext_mode="hide")
+        fig.update_traces(
+            text=labels,
+            textposition="outside",
+            textfont=dict(size=11, color="#374151"),
+            hovertemplate="%{y}: %{x}<extra></extra>",
+        )
+        fig.update_layout(
+            uniformtext_minsize=8,
+            uniformtext_mode="hide",
+            margin=dict(b=80 if len(labels) > 5 else 60),
+        )
 
     elif chart_type == "line":
-        labels = [_format_label_value(v, chart_type) for v in values]
-        fig.update_traces(text=labels, textposition="top center")
+        fig.update_traces(
+            text=labels,
+            textposition="top center",
+            textfont=dict(size=11, color="#374151"),
+            hovertemplate="%{x}: %{y}<extra></extra>",
+        )
 
     elif chart_type == "area":
-        labels = [_format_label_value(v, chart_type) for v in values]
-        fig.update_traces(text=labels, textposition="top center")
+        fig.update_traces(
+            text=labels,
+            textposition="top center",
+            textfont=dict(size=11, color="#374151"),
+            hovertemplate="%{x}: %{y}<extra></extra>",
+        )
 
     elif chart_type == "pie":
         fig.update_traces(
             textinfo="label+percent+value",
-            texttemplate="%{label}<br>%{percent}<br>%{value:,.0f}",
+            texttemplate="%{label}<br>%{value:,.0f}<br>%{percent}",
             textposition="inside",
+            textfont=dict(size=12, color="white"),
+            hovertemplate="%{label}: %{value:,.0f} (%{percent})<extra></extra>",
         )
 
     elif chart_type == "scatter":
-        labels = [_format_label_value(v, chart_type) for v in values]
-        fig.update_traces(text=labels, textposition="top center")
+        fig.update_traces(
+            text=labels,
+            textposition="top center",
+            textfont=dict(size=11, color="#374151"),
+            hovertemplate="%{x}: %{y}<extra></extra>",
+        )
 
     elif chart_type == "treemap":
-        fig.update_traces(textinfo="label+value+percent parent")
+        fig.update_traces(
+            textinfo="label+value+percent parent",
+            textfont=dict(size=13),
+            hovertemplate="%{label}<br>Value: %{value:,.0f}<br>%{percentParent}<extra></extra>",
+        )
 
     elif chart_type == "funnel":
-        labels = [_format_label_value(v, chart_type) for v in values]
-        fig.update_traces(text=labels, textinfo="text+value+percent initial")
+        fig.update_traces(
+            text=labels,
+            textinfo="text+value+percent initial",
+            textfont=dict(size=12, color="white"),
+            hovertemplate="%{y}: %{x:,.0f}<extra></extra>",
+        )
 
 
 def _finalize(fig, spec: dict[str, Any]) -> str:
     font_family = spec.get("font_family")
+    top_margin = 80 if spec.get("show_labels") else 60
     fig.update_layout(
         template="plotly_white",
         font=dict(family=font_family or "system-ui, sans-serif"),
-        margin=dict(l=40, r=40, t=60, b=40),
+        margin=dict(l=40, r=40, t=top_margin, b=40),
     )
 
     return pio.to_json(fig)
