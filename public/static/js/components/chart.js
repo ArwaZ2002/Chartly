@@ -55,13 +55,25 @@ export const chart = {
     Plotly.newPlot(el, renderData.data, layout, { responsive: true, displayModeBar: true, locale: 'en-US' });
   },
 
-  async downloadImage(format, container, title) {
+  async downloadImage(format, container, title, background = 'white') {
     const plotEl = container.querySelector('.js-plotly-plot');
     if (!plotEl) throw new Error('Chart is not rendered yet');
+
+    const origPaper = plotEl._fullLayout?.paper_bgcolor || 'rgba(0,0,0,0)';
+    const origPlot = plotEl._fullLayout?.plot_bgcolor || 'rgba(0,0,0,0)';
+
+    if (background === 'white') {
+      await Plotly.relayout(plotEl, { paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff' });
+    }
+
     const dataUrl = await Plotly.toImage(plotEl, { format, width: 1280, height: 720, scale: 2 });
+
+    await Plotly.relayout(plotEl, { paper_bgcolor: origPaper, plot_bgcolor: origPlot });
+
+    const ext = format === 'jpeg' ? 'jpg' : format;
     const a = document.createElement('a');
     a.href = dataUrl;
-    a.download = `${(title || 'chart').replace(/[^\w\- ]+/g, '_').trim() || 'chart'}.${format === 'jpeg' ? 'jpg' : 'png'}`;
+    a.download = `${(title || 'chart').replace(/[^\w\- ]+/g, '_').trim() || 'chart'}.${ext}`;
     document.body.appendChild(a);
     a.click();
     a.remove();

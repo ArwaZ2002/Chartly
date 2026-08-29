@@ -93,9 +93,28 @@ export const reviewPage = {
             </div>
             <div class="page-header-actions">
               ${App.can('edit') ? `<button class="btn btn-secondary btn-sm" id="editChartBtn">${icon('pencil', 14)} Edit Chart</button>` : ''}
-              ${App.can('edit') ? `<button class="btn btn-secondary btn-sm" id="saveTemplateBtn">${icon('template', 14)} Save as Template</button>` : ''}
-              <button class="btn btn-secondary btn-sm" id="exportPngBtn">${icon('download', 13)} PNG</button>
-              <button class="btn btn-secondary btn-sm" id="exportJpgBtn">${icon('download', 13)} JPG</button>
+              ${App.can('edit') ? `              <button class="btn btn-secondary btn-sm" id="saveTemplateBtn">${icon('template', 14)} Save as Template</button>` : ''}
+              <div class="download-dropdown" id="downloadDropdown">
+                <button class="btn btn-secondary btn-sm" id="downloadToggleBtn">${icon('download', 13)} Download</button>
+                <div class="download-dropdown-panel" id="downloadPanel">
+                  <div class="dd-section">
+                    <div class="dd-label">Format</div>
+                    <div class="dd-options">
+                      <label class="dd-option"><input type="radio" name="dlFormat" value="png" checked> PNG</label>
+                      <label class="dd-option"><input type="radio" name="dlFormat" value="jpeg"> JPG</label>
+                      <label class="dd-option"><input type="radio" name="dlFormat" value="svg"> SVG</label>
+                    </div>
+                  </div>
+                  <div class="dd-section">
+                    <div class="dd-label">Background</div>
+                    <div class="dd-options">
+                      <label class="dd-option"><input type="radio" name="dlBg" value="white" checked> White</label>
+                      <label class="dd-option"><input type="radio" name="dlBg" value="transparent"> Transparent</label>
+                    </div>
+                  </div>
+                  <button class="btn btn-primary btn-sm" id="downloadConfirmBtn" style="width:100%; margin-top:8px;">${icon('download', 13)} Download</button>
+                </div>
+              </div>
               <button class="btn btn-secondary btn-sm" id="exportCodeBtn">${icon('code', 14)} Export Code</button>
               ${App.can('delete') ? `<button class="btn btn-danger btn-sm" id="deleteChartBtn" title="Delete chart">${icon('trash', 14)}</button>` : ''}
             </div>
@@ -467,15 +486,32 @@ export const reviewPage = {
         section.style.display = section.style.display === 'none' ? 'block' : 'none';
       });
 
-      const downloadImage = async (format) => {
+      const downloadImage = async (format, background) => {
         if (!renderBox.querySelector('.js-plotly-plot')) { App.toast('Chart is not rendered yet', 'warn'); return; }
         try {
-          await chartUtil.downloadImage(format, renderBox, spec.title);
+          await chartUtil.downloadImage(format, renderBox, spec.title, background);
           App.toast(`${format.toUpperCase()} exported`);
         } catch (err) { App.toast('Export failed: ' + err.message, 'error'); }
       };
-      document.getElementById('exportPngBtn').addEventListener('click', () => downloadImage('png'));
-      document.getElementById('exportJpgBtn').addEventListener('click', () => downloadImage('jpeg'));
+
+      // Download dropdown toggle
+      const downloadToggleBtn = document.getElementById('downloadToggleBtn');
+      const downloadPanel = document.getElementById('downloadPanel');
+      downloadToggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        downloadPanel.classList.toggle('open');
+      });
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.download-dropdown')) downloadPanel.classList.remove('open');
+      });
+
+      // Download confirm
+      document.getElementById('downloadConfirmBtn').addEventListener('click', () => {
+        const format = document.querySelector('input[name="dlFormat"]:checked').value;
+        const bg = document.querySelector('input[name="dlBg"]:checked').value;
+        downloadPanel.classList.remove('open');
+        downloadImage(format, bg);
+      });
 
       const deleteChartBtn = document.getElementById('deleteChartBtn');
       if (deleteChartBtn) {
