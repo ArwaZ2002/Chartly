@@ -47,6 +47,13 @@ export const chartBuilderPage = {
             </select>
             <p class="form-hint" id="typeHint"></p>
           </div>
+          <div class="form-group" id="orientationGroup" style="display:none;">
+            <label class="form-label">Orientation</label>
+            <select id="barOrientation" class="form-select">
+              <option value="vertical">Vertical</option>
+              <option value="horizontal">Horizontal</option>
+            </select>
+          </div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label" id="dimLabel">X-axis (dimension)</label>
@@ -247,6 +254,7 @@ export const chartBuilderPage = {
       aggGroup.style.display = isRaw ? 'none' : '';
       dimEl.disabled = false;
       metEl.disabled = isHistogram;
+      document.getElementById('orientationGroup').style.display = type === 'bar' ? '' : 'none';
       if (isHistogram) {
         hint.textContent = 'Plots the distribution of the X-axis column — pick a numeric or categorical column. Y-axis not needed.';
       } else if (type === 'box' || type === 'violin') {
@@ -320,6 +328,7 @@ export const chartBuilderPage = {
         if (preset.font_family && [...document.getElementById('chartFont').options].some(o => o.value === preset.font_family)) {
           document.getElementById('chartFont').value = preset.font_family;
         }
+        if (preset.orientation) document.getElementById('barOrientation').value = preset.orientation;
       } else {
         document.getElementById('chartType').value = defaultType;
       }
@@ -409,6 +418,7 @@ export const chartBuilderPage = {
               title,
               colors: currentColors(),
               font_family: currentFont() || null,
+              orientation: document.getElementById('barOrientation').value,
             },
           },
         });

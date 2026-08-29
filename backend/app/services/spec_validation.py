@@ -4,6 +4,7 @@ SUPPORTED_CHART_TYPES = {"bar", "line", "area", "pie", "scatter", "histogram", "
 SUPPORTED_AGGREGATIONS = {"sum", "average", "count", "min", "max"}
 SUPPORTED_SORTING = {"none", "asc", "desc"}
 SUPPORTED_GRANULARITIES = {"day", "week", "month", "quarter", "year"}
+SUPPORTED_ORIENTATIONS = {"vertical", "horizontal"}
 TIME_CHART_TYPES = {"bar", "line", "area"}
 
 
@@ -40,6 +41,10 @@ def validate_specification(columns: list[dict[str, Any]], spec: dict[str, Any]) 
     sorting = spec.get("sorting", "none")
     if sorting not in SUPPORTED_SORTING:
         return f"Unsupported sorting: {sorting}"
+
+    orientation = spec.get("orientation", "vertical")
+    if orientation not in SUPPORTED_ORIENTATIONS:
+        return f"Unsupported orientation: {orientation}"
 
     granularity = spec.get("time_granularity")
     if granularity:

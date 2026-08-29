@@ -50,6 +50,7 @@ def generate_chart(
     sorting = spec.get("sorting", "none")
     title = spec.get("title", f"{metric} by {dimension}")
     colors = _resolve_colors(spec)
+    orientation = spec.get("orientation", "vertical")
 
     if chart_type in RAW_TYPES:
         if chart_type == "histogram":
@@ -100,13 +101,23 @@ def generate_chart(
         chart_df = chart_df.sort_values(metric, ascending=False)
 
     if chart_type == "bar":
-        fig = px.bar(
-            chart_df,
-            x=dimension,
-            y=metric,
-            title=title,
-            color_discrete_sequence=colors,
-        )
+        if orientation == "horizontal":
+            fig = px.bar(
+                chart_df,
+                x=metric,
+                y=dimension,
+                orientation="h",
+                title=title,
+                color_discrete_sequence=colors,
+            )
+        else:
+            fig = px.bar(
+                chart_df,
+                x=dimension,
+                y=metric,
+                title=title,
+                color_discrete_sequence=colors,
+            )
     elif chart_type == "line":
         fig = px.line(
             chart_df,

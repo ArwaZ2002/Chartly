@@ -132,6 +132,13 @@ export const reviewPage = {
                 <option value="funnel">Funnel Chart</option>
               </select>
             </div>
+            <div class="form-group" id="editOrientationGroup" style="display:none;">
+              <label class="form-label">Orientation</label>
+              <select id="editOrientation" class="form-select">
+                <option value="vertical">Vertical</option>
+                <option value="horizontal">Horizontal</option>
+              </select>
+            </div>
             <div class="form-group" id="editAggGroup">
               <label class="form-label">Aggregation</label>
               <select id="editAggregation" class="form-select">
@@ -259,6 +266,7 @@ export const reviewPage = {
         document.getElementById('editSorting').value = spec.sorting || 'none';
         document.getElementById('editGranularity').value = spec.time_granularity || 'month';
         document.getElementById('editTitle').value = spec.title || '';
+        document.getElementById('editOrientation').value = spec.orientation || 'vertical';
         updateEditUI();
       }
       function editDimIsDate() {
@@ -272,6 +280,7 @@ export const reviewPage = {
         const isHistogram = type === 'histogram';
         document.getElementById('editAggGroup').style.display = isRaw ? 'none' : '';
         document.getElementById('editMetric').disabled = isHistogram;
+        document.getElementById('editOrientationGroup').style.display = type === 'bar' ? '' : 'none';
         document.getElementById('editGranularityGroup').style.display =
           editDimIsDate() && ['bar', 'line', 'area'].includes(type) ? '' : 'none';
         document.getElementById('editTypeHint').textContent = isHistogram
@@ -361,6 +370,7 @@ export const reviewPage = {
                 title,
                 colors: currentColors(),
                 font_family: spec.font_family || null,
+                orientation: document.getElementById('editOrientation').value,
               },
             },
           });

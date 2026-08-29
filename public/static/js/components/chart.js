@@ -131,7 +131,9 @@ Plotly.newPlot("chart", [trace], layout);
       ? `    path=["${dim}"],\n    values="${met}"`
       : chartType === 'funnel'
         ? `    x="${met}",\n    y="${dim}"`
-        : `    x="${dim}",\n    y="${met}"`;
+        : chartType === 'bar' && spec.orientation === 'horizontal'
+          ? `    x="${met}",\n    y="${dim}",\n    orientation="h"`
+          : `    x="${dim}",\n    y="${met}"`;
     const python = `import plotly.express as px
 import pandas as pd
 
@@ -171,7 +173,15 @@ fig.show()`;
   y: labels,
   type: "funnel"
 };`
-          : `const trace = {
+          : chartType === 'bar' && spec.orientation === 'horizontal'
+            ? `const trace = {
+  x: values,
+  y: labels,
+  type: "bar",
+  orientation: "h",
+  marker: { color: "#3b82f6" }
+};`
+            : `const trace = {
   x: labels,
   y: values,
   type: "${chartType}"${chartType === 'area' ? ',\n  fill: "tozeroy"' : ''},
