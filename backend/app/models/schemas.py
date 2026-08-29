@@ -73,6 +73,7 @@ class ChartSpecification(BaseModel):
     colors: Optional[list[str]] = None
     font_family: Optional[str] = None
     orientation: Optional[str] = "vertical"  # vertical, horizontal
+    show_labels: bool = False
 
 
 class ChartGenerateRequest(BaseModel):

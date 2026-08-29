@@ -126,6 +126,13 @@ export const chartBuilderPage = {
                 <option value="Verdana, sans-serif">Verdana</option>
               </select>
             </div>
+            <div class="form-group" id="labelsGroup" style="display:none;">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" id="showLabels" style="width:16px; height:16px; accent-color:#f97316;">
+                <span class="form-label" style="margin:0;">Show data labels</span>
+              </label>
+              <p class="form-hint">Display values directly on the chart.</p>
+            </div>
             <button class="btn btn-secondary" id="saveThemeBtn" style="width:100%;">${icon('template', 14)} Save as Theme Template</button>
           </div>
           <div class="config-summary" id="configSummary" style="display:none;"></div>
@@ -255,6 +262,8 @@ export const chartBuilderPage = {
       dimEl.disabled = false;
       metEl.disabled = isHistogram;
       document.getElementById('orientationGroup').style.display = type === 'bar' ? '' : 'none';
+      const labelTypes = ['bar', 'line', 'area', 'pie', 'scatter', 'treemap', 'funnel'];
+      document.getElementById('labelsGroup').style.display = labelTypes.includes(type) ? '' : 'none';
       if (isHistogram) {
         hint.textContent = 'Plots the distribution of the X-axis column — pick a numeric or categorical column. Y-axis not needed.';
       } else if (type === 'box' || type === 'violin') {
@@ -419,6 +428,7 @@ export const chartBuilderPage = {
               colors: currentColors(),
               font_family: currentFont() || null,
               orientation: document.getElementById('barOrientation').value,
+              show_labels: document.getElementById('showLabels').checked,
             },
           },
         });

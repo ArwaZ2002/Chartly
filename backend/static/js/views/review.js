@@ -194,6 +194,12 @@ export const reviewPage = {
               <input type="color" class="custom-color" data-i="3" value="#10b981">
             </div>
           </div>
+          <div class="form-group" id="editLabelsGroup" style="display:none;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" id="editShowLabels" style="width:16px; height:16px; accent-color:#f97316;">
+              <span class="form-label" style="margin:0;">Show data labels</span>
+            </label>
+          </div>
           <p class="form-hint" id="editTypeHint" style="margin:0 0 14px;"></p>
           <div style="display:flex; gap:10px; justify-content:flex-end;">
             <button class="btn btn-secondary" id="cancelEditBtn">Cancel</button>
@@ -267,6 +273,7 @@ export const reviewPage = {
         document.getElementById('editGranularity').value = spec.time_granularity || 'month';
         document.getElementById('editTitle').value = spec.title || '';
         document.getElementById('editOrientation').value = spec.orientation || 'vertical';
+        document.getElementById('editShowLabels').checked = !!spec.show_labels;
         updateEditUI();
       }
       function editDimIsDate() {
@@ -281,6 +288,8 @@ export const reviewPage = {
         document.getElementById('editAggGroup').style.display = isRaw ? 'none' : '';
         document.getElementById('editMetric').disabled = isHistogram;
         document.getElementById('editOrientationGroup').style.display = type === 'bar' ? '' : 'none';
+        const labelTypes = ['bar', 'line', 'area', 'pie', 'scatter', 'treemap', 'funnel'];
+        document.getElementById('editLabelsGroup').style.display = labelTypes.includes(type) ? '' : 'none';
         document.getElementById('editGranularityGroup').style.display =
           editDimIsDate() && ['bar', 'line', 'area'].includes(type) ? '' : 'none';
         document.getElementById('editTypeHint').textContent = isHistogram
@@ -371,6 +380,7 @@ export const reviewPage = {
                 colors: currentColors(),
                 font_family: spec.font_family || null,
                 orientation: document.getElementById('editOrientation').value,
+                show_labels: document.getElementById('editShowLabels').checked,
               },
             },
           });

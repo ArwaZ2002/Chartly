@@ -170,7 +170,55 @@ def generate_chart(
     else:
         raise ValueError(f"Unsupported chart type: {chart_type}")
 
+    _apply_labels(fig, chart_type, chart_df, metric, spec)
+
     return _finalize(fig, spec)
+
+
+def _format_label_value(value, chart_type: str) -> str:
+    if isinstance(value, float):
+        if value == int(value):
+            return f"{int(value):,}"
+        return f"{value:,.2f}"
+    return str(value)
+
+
+def _apply_labels(fig, chart_type: str, chart_df: pd.DataFrame, metric: str, spec: dict[str, Any]):
+    if not spec.get("show_labels"):
+        return
+
+    values = chart_df[metric]
+
+    if chart_type == "bar":
+        labels = [_format_label_value(v, chart_type) for v in values]
+        fig.update_traces(text=labels, textposition="outside")
+        fig.update_layout(uniformtext_minsize=8, uniformtext_mode="hide")
+
+    elif chart_type == "line":
+        labels = [_format_label_value(v, chart_type) for v in values]
+        fig.update_traces(text=labels, textposition="top center")
+
+    elif chart_type == "area":
+        labels = [_format_label_value(v, chart_type) for v in values]
+        fig.update_traces(text=labels, textposition="top center")
+
+    elif chart_type == "pie":
+        fig.update_traces(
+            textinfo="label+percent+value",
+            texttemplate="%{label}<br>%{percent}<br>%{value:,.0f}",
+            textposition="inside",
+        )
+
+    elif chart_type == "scatter":
+        labels = [_format_label_value(v, chart_type) for v in values]
+        fig.update_traces(text=labels, textposition="top center")
+
+    elif chart_type == "treemap":
+        fig.update_traces(textinfo="label+value+percent parent")
+
+    elif chart_type == "funnel":
+        labels = [_format_label_value(v, chart_type) for v in values]
+        fig.update_traces(text=labels, textinfo="text+value+percent initial")
 
 
 def _finalize(fig, spec: dict[str, Any]) -> str:

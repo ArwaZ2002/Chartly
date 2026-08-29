@@ -74,11 +74,15 @@ export const chart = {
     const agg = spec.aggregation || 'sum';
     const title = spec.title || `${met} by ${dim}`;
     const isRaw = this.rawTypes.includes(chartType);
+    const showLabels = !!spec.show_labels;
 
     if (isRaw) {
       const pyKwargs = chartType === 'histogram'
         ? `    x="${dim}",\n    title="${title}",\n    nbinsx=40`
         : `    x="${dim}",\n    y="${met}",\n    title="${title}"`;
+      const pyLabels = showLabels
+        ? `\nfig.update_traces(textposition="outside")\nfig.update_layout(uniformtext_minsize=8, uniformtext_mode="hide")`
+        : '';
       const python = `import plotly.express as px
 import pandas as pd
 
@@ -88,7 +92,7 @@ df = pd.read_csv("your_data.csv")  # or pd.read_excel("your_data.xlsx")
 # Create chart (plots raw values, no aggregation)
 fig = px.${chartType}(
 ${pyKwargs}
-)
+)${pyLabels}
 
 fig.update_layout(template="plotly_white")
 fig.show()`;
@@ -149,7 +153,7 @@ chart_df = df.groupby("${dim}", as_index=False).agg(
 fig = px.${chartType}(
 ${pyCall},
     title="${title}"
-)
+)${showLabels ? `\n\n# Add data labels\nfig.update_traces(textposition="outside")\nfig.update_layout(uniformtext_minsize=8, uniformtext_mode="hide")` : ''}
 
 fig.update_layout(template="plotly_white")
 fig.show()`;
@@ -158,20 +162,26 @@ fig.show()`;
       ? `const trace = {
   labels: labels,
   values: values,
-  type: "pie"
+  type: "pie",
+  textinfo: "label+percent+value",
+  texttemplate: "%{label}<br>%{percent}<br>%{value:,.0f}",
+  textposition: "inside"
 };`
       : chartType === 'treemap'
         ? `const trace = {
   labels: labels,
   parents: labels.map(() => ""),
   values: values,
-  type: "treemap"
+  type: "treemap",
+  textinfo: "label+value+percent parent"
 };`
         : chartType === 'funnel'
           ? `const trace = {
   x: values,
   y: labels,
-  type: "funnel"
+  type: "funnel",
+  text: values.map(v => v.toLocaleString()),
+  textinfo: "text+value+percent initial"
 };`
           : chartType === 'bar' && spec.orientation === 'horizontal'
             ? `const trace = {
@@ -179,13 +189,13 @@ fig.show()`;
   y: labels,
   type: "bar",
   orientation: "h",
-  marker: { color: "#3b82f6" }
+  marker: { color: "#3b82f6" }${showLabels ? ',\n  text: values.map(v => v.toLocaleString()),\n  textposition: "outside"' : ''}
 };`
             : `const trace = {
   x: labels,
   y: values,
   type: "${chartType}"${chartType === 'area' ? ',\n  fill: "tozeroy"' : ''},
-  marker: { color: "#3b82f6" }
+  marker: { color: "#3b82f6" }${showLabels && ['bar', 'line', 'scatter'].includes(chartType) ? ',\n  text: values.map(v => v.toLocaleString()),\n  textposition: "top center"' : ''}
 };`;
     const javascript = `<script src="https://cdn.plot.ly/plotly-2.35.0.min.js"><\/script>
 <script>
