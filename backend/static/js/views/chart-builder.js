@@ -316,6 +316,10 @@ export const chartBuilderPage = {
         datasetSelect.value = presetDsId;
         populateColumns(datasets.find(d => d.id === presetDsId));
         loadRecommendations(presetDsId);
+      } else if (datasets.length > 0) {
+        datasetSelect.value = datasets[0].id;
+        populateColumns(datasets[0]);
+        loadRecommendations(datasets[0].id);
       }
 
       if (preset) {
