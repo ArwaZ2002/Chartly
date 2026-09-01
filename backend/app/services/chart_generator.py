@@ -39,6 +39,18 @@ def _resolve_colors(spec: dict[str, Any]) -> list[str]:
     return CHART_COLORS
 
 
+def _ensure_numeric(series: pd.Series) -> pd.Series:
+    """Coerce a series to numeric, handling formatted strings."""
+    if pd.api.types.is_numeric_dtype(series.dtype):
+        return series
+    return pd.to_numeric(
+        series.astype(str).str.replace(",", "").str.replace("$", "")
+        .str.replace("\u00a3", "").str.replace("\u20ac", "")
+        .str.replace("\u00a5", "").str.rstrip("%"),
+        errors="coerce",
+    )
+
+
 def generate_chart(
     df: pd.DataFrame,
     spec: dict[str, Any],
@@ -51,6 +63,11 @@ def generate_chart(
     title = spec.get("title", f"{metric} by {dimension}")
     colors = _resolve_colors(spec)
     orientation = spec.get("orientation", "vertical")
+
+    # Ensure metric is numeric for aggregation
+    if metric in df.columns and chart_type not in RAW_TYPES:
+        df = df.copy()
+        df[metric] = _ensure_numeric(df[metric])
 
     if chart_type in RAW_TYPES:
         if chart_type == "histogram":

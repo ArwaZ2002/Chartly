@@ -47,7 +47,9 @@ def _validate_mime(ext: str, content_type: str | None) -> None:
 
 def _parse_dataset(file_name: str, data: bytes) -> pd.DataFrame:
     try:
-        return parse_dataset_bytes(file_name, data)
+        df = parse_dataset_bytes(file_name, data)
+        df = _coerce_numeric_columns(df)
+        return df
     except Exception:
         logger.exception("Failed to parse uploaded file %s", file_name)
         raise HTTPException(
@@ -57,6 +59,23 @@ def _parse_dataset(file_name: str, data: bytes) -> pd.DataFrame:
                 "The file may be corrupted or in an unsupported format."
             ),
         )
+
+
+def _coerce_numeric_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Attempt to convert string columns to numeric where possible."""
+    for col in df.columns:
+        if df[col].dtype == object:
+            converted = pd.to_numeric(
+                df[col].astype(str).str.replace(",", "").str.replace("$", "")
+                .str.replace("\u00a3", "").str.replace("\u20ac", "")
+                .str.replace("\u00a5", "").str.rstrip("%"),
+                errors="coerce",
+            )
+            # Convert if at least 80% of non-null values parsed successfully
+            non_null = df[col].dropna()
+            if len(non_null) > 0 and converted.notna().mean() >= 0.8:
+                df[col] = converted
+    return df
 
 
 @router.post("/upload", response_model=DatasetResponse)
