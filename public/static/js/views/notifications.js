@@ -17,7 +17,6 @@ export const notificationsPage = {
       <div class="page-header">
         <div>
           <h1>Notifications</h1>
-          <p class="subtitle">Chart edits from other users — up to 100 kept, auto-deleted after 30 days.</p>
         </div>
         <div class="page-header-actions">
           <span class="badge slate" id="notifCountBadge">0</span>
