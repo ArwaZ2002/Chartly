@@ -144,6 +144,7 @@ def _seed_default_settings():
 DEMO_USERS = [
     {"email": "admin@chartly.demo", "name": "Admin", "password": "admin-demo-123", "role": "admin"},
     {"email": "analyst@chartly.demo", "name": "Analyst", "password": "analyst-demo-123", "role": "analyst"},
+    {"email": "analyst2@chartly.demo", "name": "Analyst2", "password": "analyst2-demo-123", "role": "analyst"},
     {"email": "viewer@chartly.demo", "name": "Viewer", "password": "viewer-demo-123", "role": "viewer"},
 ]
 

@@ -20,7 +20,7 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     datasets = relationship("Dataset", back_populates="uploader")
-    charts = relationship("Chart", back_populates="creator")
+    charts = relationship("Chart", back_populates="creator", foreign_keys="Chart.created_by")
     audit_entries = relationship("AuditEntry", back_populates="user")
 
 
@@ -53,9 +53,12 @@ class Chart(Base):
     specification = Column(JSON, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     created_by = Column(String, ForeignKey("users.id"), nullable=False)
+    updated_at = Column(DateTime, nullable=True)
+    updated_by = Column(String, ForeignKey("users.id"), nullable=True)
 
     dataset = relationship("Dataset", back_populates="charts")
-    creator = relationship("User", back_populates="charts")
+    creator = relationship("User", back_populates="charts", foreign_keys=[created_by])
+    updater = relationship("User", foreign_keys=[updated_by])
     versions = relationship(
         "ChartVersion",
         back_populates="chart",
@@ -72,8 +75,10 @@ class ChartVersion(Base):
     chart_id = Column(String, ForeignKey("charts.id"), nullable=False)
     specification = Column(JSON, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    created_by = Column(String, ForeignKey("users.id"), nullable=True)
 
     chart = relationship("Chart", back_populates="versions")
+    creator = relationship("User", foreign_keys=[created_by])
 
 
 class Template(Base):

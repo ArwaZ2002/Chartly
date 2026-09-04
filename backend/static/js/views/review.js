@@ -49,6 +49,8 @@ export const reviewPage = {
         const b = next.specification || {};
         return SPEC_FIELDS.filter(([k]) => (a[k] ?? null) !== (b[k] ?? null)).map(([, label]) => label);
       };
+      // Helper to resolve creator label for version
+      const versionAuthor = (v) => App.escapeHtml(v.created_by_name || (v.created_by ? v.created_by.slice(0,8) : 'Unknown'));
       const versionsHtml = versions.length === 0
         ? '<p style="font-size:13px; color:var(--text-muted);">No versions recorded yet.</p>'
         : versions.map((v, i) => {
@@ -64,6 +66,7 @@ export const reviewPage = {
                   <strong>Version ${i + 1}</strong>
                   <span class="badge ${chartUtil.accent(vs.chart_type)}">${chartUtil.typeLabel(vs.chart_type || 'chart')}</span>
                   <span class="version-time">${App.formatDateTime(v.created_at)}</span>
+                  <span class="meta-chip" style="font-size:11.5px;" title="${versionAuthor(v)}">${icon('users', 12)} ${versionAuthor(v)}</span>
                 </div>
                 <div class="version-item-chips">
                   <span class="meta-chip"><strong>${App.escapeHtml(vs.title || 'Untitled')}</strong></span>
@@ -84,12 +87,18 @@ export const reviewPage = {
             </div>`;
           }).join('');
 
+      const creatorLabel = App.escapeHtml(chart.created_by_name || (chart.created_by ? chart.created_by.slice(0,8) : 'Unknown'));
+      const editorLabel = chart.updated_by_name ? App.escapeHtml(chart.updated_by_name) : (chart.updated_by ? chart.updated_by.slice(0,8) : null);
+      const hasEdit = !!(chart.updated_at && chart.updated_by);
+      const subtitleHtml = hasEdit
+        ? `${ds ? App.escapeHtml(ds.name) : 'Dataset removed'} · Created by <strong>${creatorLabel}</strong> ${App.formatDate(chart.created_at)} · Edited by <strong>${editorLabel}</strong> ${App.formatDate(chart.updated_at)}`
+        : `${ds ? App.escapeHtml(ds.name) : 'Dataset removed'} · Created by <strong>${creatorLabel}</strong> ${App.formatDate(chart.created_at)}`;
       document.getElementById('chartDetail').innerHTML = `
         <div class="card" style="padding:22px; margin-bottom:20px;">
           <div class="chart-detail-head">
             <div>
               <h2>${App.escapeHtml(spec.title || 'Untitled Chart')}</h2>
-              <p class="subtitle" style="font-size:12.5px;">${ds ? App.escapeHtml(ds.name) : 'Dataset removed'} · ${App.formatDate(chart.created_at)}</p>
+              <p class="subtitle" style="font-size:12.5px;">${subtitleHtml}</p>
             </div>
             <div class="page-header-actions">
               ${App.can('edit') ? `<button class="btn btn-secondary btn-sm" id="editChartBtn">${icon('pencil', 14)} Edit Chart</button>` : ''}

@@ -355,6 +355,12 @@ export const projectDetailPage = {
             : dsCharts.map(c => {
                 const spec = c.specification || {};
                 const accent = App.chartAccent(spec.chart_type);
+                const creator = App.escapeHtml(c.created_by_name || (c.created_by ? c.created_by.slice(0,8) : 'Unknown'));
+                const editor = c.updated_by_name ? App.escapeHtml(c.updated_by_name) : (c.updated_by ? c.updated_by.slice(0,8) : null);
+                const hasEdit = !!(c.updated_at && c.updated_by);
+                const metaLine = hasEdit
+                  ? `Created by <strong>${creator}</strong> ${App.formatDate(c.created_at)} · Edited by <strong>${editor}</strong> ${App.formatDate(c.updated_at)}`
+                  : `Created by <strong>${creator}</strong> ${App.formatDate(c.created_at)}`;
                 return `
                   <a href="#charts/${c.id}" class="chart-card">
                     <div class="chart-card-head">
@@ -365,7 +371,7 @@ export const projectDetailPage = {
                       <h3>${App.escapeHtml(spec.title || 'Untitled Chart')}</h3>
                       <p class="meta">${spec.chart_type === 'histogram' ? `Distribution of ${App.escapeHtml(spec.dimension || '—')}` : `${App.escapeHtml(spec.dimension || '—')} vs ${App.escapeHtml(spec.metric || '—')}`}</p>
                     </div>
-                    <small class="date">Created ${App.formatDate(c.created_at)}</small>
+                    <small class="date" style="line-height:1.4;">${metaLine}</small>
                   </a>`;
               }).join('')
           }

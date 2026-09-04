@@ -87,6 +87,10 @@ class ChartResponse(BaseModel):
     specification: ChartSpecification
     created_at: datetime
     created_by: str
+    created_by_name: Optional[str] = None
+    updated_at: Optional[datetime] = None
+    updated_by: Optional[str] = None
+    updated_by_name: Optional[str] = None
     current_version_id: Optional[str] = None
     versions: list[dict] = []
 
