@@ -78,6 +78,24 @@ def _migrate_add_chart_audit_columns():
         _logging.getLogger(__name__).exception("Chart audit migration skipped")
 
 
+def _migrate_notifications():
+    """Create notifications table if missing (idempotent)."""
+    from sqlalchemy import text as _text
+
+    try:
+        with engine.begin() as conn:
+            if DATABASE_URL.startswith("sqlite"):
+                rows = conn.execute(_text("SELECT name FROM sqlite_master WHERE type='table' AND name='notifications'")).fetchall()
+                if not rows:
+                    # Will be created by create_all, but ensure for existing DBs
+                    pass
+            # Base.metadata.create_all already handles creation; no extra ALTER needed
+    except Exception:
+        import logging as _logging
+        _logging.getLogger(__name__).exception("Notifications migration skipped")
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
     _migrate_add_chart_audit_columns()
+    _migrate_notifications()

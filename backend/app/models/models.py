@@ -121,6 +121,23 @@ class AuditEntry(Base):
     user = relationship("User", back_populates="audit_entries")
 
 
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    chart_id = Column(String, ForeignKey("charts.id"), nullable=False, index=True)
+    actor_id = Column(String, ForeignKey("users.id"), nullable=False)
+    action = Column(String, nullable=False)  # regenerate, restore
+    title = Column(String, nullable=False)
+    is_read = Column(Integer, nullable=False, default=0, index=True)  # 0=unread, 1=read (SQLite friendly)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    recipient = relationship("User", foreign_keys=[user_id])
+    actor = relationship("User", foreign_keys=[actor_id])
+    chart = relationship("Chart")
+
+
 class Setting(Base):
     __tablename__ = "settings"
 

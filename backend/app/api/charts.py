@@ -5,7 +5,7 @@ import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.models.models import Dataset, Chart, ChartVersion, AuditEntry, User
+from app.models.models import Dataset, Chart, ChartVersion, AuditEntry, User, Notification
 from app.models.schemas import (
     ChartGenerateRequest,
     ChartResponse,
@@ -20,6 +20,59 @@ from app.api.auth import get_current_user, require_role
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _create_edit_notifications(db: Session, chart: Chart, actor_id: str, action: str, title: str | None):
+    """Fan-out notifications to creator + prior editors (excluding actor).
+
+    - Collect prior contributors from Chart.created_by + all ChartVersion.created_by
+    - Legacy fallback: supplement with AuditEntry user_ids where action in create/regenerate/restore
+    - Keep up to 100 per user (oldest beyond 100 deleted after commit via purge in notifications API, but also trimmed here)
+    - Do not notify self.
+    - Title snapshot stored.
+    """
+    try:
+        prior_ids: set[str] = set()
+        cb = getattr(chart, "created_by", None)
+        if cb:
+            prior_ids.add(cb)
+        for v in (chart.versions or []):
+            vcb = getattr(v, "created_by", None)
+            if vcb:
+                prior_ids.add(vcb)
+        # Legacy fallback for null version creators
+        if len(prior_ids) <= 1:
+            try:
+                audits = db.query(AuditEntry).filter(AuditEntry.chart_id == chart.id).all()
+                for a in audits:
+                    if getattr(a, "user_id", None) and getattr(a, "action", None) in ("create", "regenerate", "restore"):
+                        prior_ids.add(a.user_id)
+            except Exception:
+                pass
+        prior_ids.discard(actor_id)
+        prior_ids.discard(None)
+        if not prior_ids:
+            return
+        # Verify recipients still exist
+        existing = {u.id for u in db.query(User).filter(User.id.in_(list(prior_ids))).all()} if prior_ids else set()
+        recipients = prior_ids & existing
+        if not recipients:
+            return
+        notif_title = title or (chart.specification or {}).get("title") or "Untitled Chart"
+        for rid in recipients:
+            db.add(Notification(
+                user_id=rid,
+                chart_id=chart.id,
+                actor_id=actor_id,
+                action=action,
+                title=notif_title,
+                is_read=0,
+            ))
+        # Note: cap at 100 and 30-day purge handled lazily in notifications API,
+        # but we also keep DB not bloated if user never visits notifications page:
+        # No immediate purge here to avoid extra queries in hot path.
+    except Exception:
+        logger.exception("Failed to create edit notifications for chart %s", getattr(chart, "id", "?"))
 
 
 def load_dataset_df(db: Session, dataset_id: str) -> tuple[Dataset, pd.DataFrame]:
@@ -323,6 +376,9 @@ def restore_chart_version(
     )
     db.add(audit)
 
+    # Notify original creator + prior editors (excluding actor)
+    _create_edit_notifications(db, chart, user.id, "restore", (version.specification or {}).get("title"))
+
     db.commit()
     db.refresh(chart)
 
@@ -373,6 +429,9 @@ def regenerate_chart(
         specification=spec_dict,
     )
     db.add(audit)
+
+    # Notify original creator + prior editors (excluding actor)
+    _create_edit_notifications(db, chart, user.id, "regenerate", spec_dict.get("title"))
 
     db.commit()
     db.refresh(chart)

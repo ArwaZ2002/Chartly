@@ -163,3 +163,22 @@ class AuditEntryResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Notifications
+class NotificationResponse(BaseModel):
+    id: str
+    chart_id: str
+    chart_title: Optional[str] = None
+    actor_id: str
+    actor_name: str
+    action: str
+    is_read: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UnreadCountResponse(BaseModel):
+    count: int
