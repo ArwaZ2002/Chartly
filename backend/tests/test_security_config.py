@@ -5,7 +5,7 @@ from pathlib import Path
 import jwt
 import pytest
 
-from tests.conftest import BACKEND_DIR
+from tests.conftest import BACKEND_DIR, clear_cookies
 from app.core.config import Settings, get_settings
 from app.api.auth import create_access_token
 
@@ -114,6 +114,83 @@ def test_cookie_not_secure_in_dev(client):
     assert "HttpOnly" in sc
     assert "SameSite=lax" in sc
     assert "Secure" not in sc
+
+
+def test_login_response_does_not_contain_jwt(client):
+    r = client.post(
+        "/api/auth/login",
+        json={"email": "admin@chartly.demo", "password": "admin-demo-123"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert "token" not in body
+    assert "Authorization" not in body
+    assert "access_token" not in body
+    assert body["email"] == "admin@chartly.demo"
+
+
+def test_login_sets_httponly_auth_cookie(client):
+    r = client.post(
+        "/api/auth/login",
+        json={"email": "admin@chartly.demo", "password": "admin-demo-123"},
+    )
+    assert r.status_code == 200
+    sc = r.headers.get("set-cookie", "")
+    assert sc.startswith("chartly_token=")
+    assert "HttpOnly" in sc
+    assert "Path=/" in sc
+    assert "Max-Age=" in sc
+
+
+def test_protected_endpoint_works_with_cookie(client):
+    r = client.post(
+        "/api/auth/login",
+        json={"email": "admin@chartly.demo", "password": "admin-demo-123"},
+    )
+    assert r.status_code == 200
+    assert client.get("/api/auth/me").status_code == 200
+    assert client.get("/api/datasets").status_code == 200
+
+
+def test_request_without_auth_is_rejected(client):
+    clear_cookies(client)
+    assert client.get("/api/auth/me").status_code == 401
+    assert client.get("/api/datasets").status_code == 401
+
+
+def test_logout_clears_auth_cookie(client):
+    r = client.post(
+        "/api/auth/login",
+        json={"email": "admin@chartly.demo", "password": "admin-demo-123"},
+    )
+    assert r.status_code == 200
+    assert "chartly_token=" in r.headers.get("set-cookie", "")
+    assert client.get("/api/auth/me").status_code == 200
+
+    r = client.post("/api/auth/logout")
+    assert r.status_code == 200
+    invalidating = r.headers.get("set-cookie", "")
+    assert "chartly_token=" in invalidating
+    assert "Max-Age=0" in invalidating
+    assert client.get("/api/auth/me").status_code == 401
+
+
+def test_cors_credentials_configuration(client):
+    ok = client.get("/health", headers={"Origin": "http://localhost:8000"})
+    assert ok.headers.get("access-control-allow-origin") == "http://localhost:8000"
+    assert ok.headers.get("access-control-allow-origin") != "*"
+    assert ok.headers.get("access-control-allow-credentials") == "true"
+
+    preflight = client.options(
+        "/api/auth/login",
+        headers={
+            "Origin": "http://localhost:8000",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    assert preflight.status_code == 200
+    assert preflight.headers.get("access-control-allow-origin") == "http://localhost:8000"
+    assert preflight.headers.get("access-control-allow-credentials") == "true"
 
 
 def test_production_mode():

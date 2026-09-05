@@ -20,11 +20,6 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 
-class TokenResponse(BaseModel):
-    token: str
-    user: UserResponse
-
-
 class UserCreate(BaseModel):
     name: str
     email: str

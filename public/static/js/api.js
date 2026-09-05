@@ -40,10 +40,10 @@ export const api = {
   },
 
   async login(email, password) {
-    const data = await this.apiFetch('/auth/login', { method: 'POST', body: { email, password } });
-    this.user = data.user;
-    localStorage.setItem('chartly_user', JSON.stringify(data.user));
-    return data;
+    const user = await this.apiFetch('/auth/login', { method: 'POST', body: { email, password } });
+    this.user = user;
+    localStorage.setItem('chartly_user', JSON.stringify(user));
+    return user;
   },
 
   async logout() {

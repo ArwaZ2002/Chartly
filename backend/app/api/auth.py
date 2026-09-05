@@ -14,7 +14,7 @@ from app.core.database import get_db
 from app.core.config import get_settings
 from app.core.rate_limit import LoginRateLimiter
 from app.models.models import RevokedToken, User
-from app.models.schemas import UserLogin, UserResponse, TokenResponse
+from app.models.schemas import UserLogin, UserResponse
 
 logger = logging.getLogger(__name__)
 
@@ -198,7 +198,7 @@ def require_role(*roles: str):
     return dependency
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=UserResponse)
 def login(
     request: Request,
     response: Response,
@@ -229,10 +229,9 @@ def login(
 
     access_token = create_access_token(data={"sub": user.id})
     _set_auth_cookie(response, access_token)
-    return TokenResponse(
-        token=access_token,
-        user=UserResponse.model_validate(user),
-    )
+    # Deliberately do NOT return the JWT in the JSON body: it is only ever
+    # carried in the HttpOnly cookie set above.
+    return user
 
 
 @router.post("/logout")

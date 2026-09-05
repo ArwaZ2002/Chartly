@@ -18,6 +18,7 @@ os.environ["TRUST_PROXY"] = "false"
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import get_settings
 from app.core.database import SessionLocal
 from main import app
 from app.models.models import User
@@ -50,9 +51,26 @@ def cleanup_test_uploads():
 
 
 def login(client, email: str, password: str) -> str:
+    """Log in and return the raw JWT for programmatic (Bearer) use.
+
+    The login response intentionally does NOT contain the JWT in its JSON
+    body (see security issue #3); the token is only carried in the HttpOnly
+    cookie. Tests that need the raw token parse it from Set-Cookie.
+    """
     r = client.post("/api/auth/login", json={"email": email, "password": password})
     assert r.status_code == 200, r.text
-    return r.json()["token"]
+    token = _cookie_value(r, get_settings().COOKIE_NAME)
+    assert token, "login did not set the auth cookie"
+    return token
+
+
+def _cookie_value(response, name: str) -> str | None:
+    set_cookie = response.headers.get("set-cookie", "")
+    for part in set_cookie.split(";"):
+        part = part.strip()
+        if part.startswith(name + "="):
+            return part.split("=", 1)[1]
+    return None
 
 
 def auth_headers(token: str) -> dict:

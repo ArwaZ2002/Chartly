@@ -19,7 +19,7 @@ def test_demo_accounts_login_and_are_argon2(client, db):
     ]:
         r = client.post("/api/auth/login", json={"email": email, "password": password})
         assert r.status_code == 200, r.text
-        assert r.json()["user"]["role"] == role
+        assert r.json()["role"] == role
         user = db.query(User).filter(User.email == email).first()
         assert user is not None
         assert user.hashed_password.startswith("$argon2id$")
