@@ -102,7 +102,7 @@ Environment variables (`backend/.env`, see `.env.example`):
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `ENVIRONMENT` | `development` | `production` disables API docs and switches to production defaults |
-| `SECRET_KEY` / `JWT_SECRET_KEY` | placeholder | JWT signing secret — **generate a strong random value in production** |
+| `JWT_SECRET` | **required** | JWT signing secret — **must be set**, generate a strong random value (no default) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `120` | Access token lifetime |
 | `ALLOWED_ORIGINS` | `http://localhost:8000` | Comma-separated browser origins allowed to call the API (no wildcard) |
 | `ENABLE_API_DOCS` | auto | Empty = enabled in development, disabled in production; set `true`/`false` to override |
@@ -141,7 +141,7 @@ The repo is already wired for it:
    | Variable | Value |
    |----------|-------|
    | `DATABASE_URL` | your Neon connection string |
-   | `SECRET_KEY` | `python -c "import secrets; print(secrets.token_urlsafe(64))"` |
+   | `JWT_SECRET` | `python -c "import secrets; print(secrets.token_urlsafe(64))"` |
    | `ENVIRONMENT` | `production` |
    | `COOKIE_SECURE` | `true` |
    | `TRUST_PROXY` | `true` |

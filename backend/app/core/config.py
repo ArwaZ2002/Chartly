@@ -13,11 +13,12 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "sqlite:///./chartly.db"
 
-    # JWT signing secret. Generate a strong random value for production:
+    # JWT signing secret. MUST be provided via the JWT_SECRET environment
+    # variable (there is deliberately NO default value). The application
+    # fails fast at startup if it is missing or empty.
+    # Generate a strong random value:
     #   python -c "import secrets; print(secrets.token_urlsafe(64))"
-    SECRET_KEY: str = "chartly-secret-key-change-in-production"
-    # Optional alias; takes precedence over SECRET_KEY when set.
-    JWT_SECRET_KEY: str = ""
+    JWT_SECRET: str = ""
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 120
 
@@ -54,7 +55,7 @@ class Settings(BaseSettings):
 
     @property
     def secret_key(self) -> str:
-        return self.JWT_SECRET_KEY or self.SECRET_KEY
+        return self.JWT_SECRET
 
     @property
     def api_docs_enabled(self) -> bool:
@@ -72,7 +73,27 @@ class Settings(BaseSettings):
                 pass
         return [o.strip() for o in raw.split(",") if o.strip()]
 
+    def validate_security_configuration(self) -> None:
+        """Reject missing or insecure JWT signing configuration.
+
+        Fail fast in every environment: a JWT secret is mandatory, never
+        optional, so development cannot ship with an insecure default.
+        """
+        secret = self.secret_key
+        if not secret:
+            raise ValueError(
+                "JWT_SECRET must be set via the environment (no default is provided)"
+            )
+        if len(secret) < 32:
+            raise ValueError("JWT_SECRET must be at least 32 characters")
+        if self.ENVIRONMENT.strip().lower() == "production" and secret == "chartly-secret-key-change-in-production":
+            raise ValueError(
+                "JWT_SECRET must be set to a unique value in production"
+            )
+
 
 @lru_cache()
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    settings.validate_security_configuration()
+    return settings

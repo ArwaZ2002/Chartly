@@ -9,7 +9,7 @@ sys.path.insert(0, str(BACKEND_DIR))
 _TEST_ROOT = tempfile.mkdtemp(prefix="chartly_tests_")
 
 os.environ["DATABASE_URL"] = "sqlite:///" + str(Path(_TEST_ROOT, "test.db").as_posix())
-os.environ["SECRET_KEY"] = "test-secret-key-not-for-production"
+os.environ["JWT_SECRET"] = "test-secret-key-not-for-production-long-enough-!!"
 os.environ["ENVIRONMENT"] = "development"
 os.environ.pop("ENABLE_API_DOCS", None)
 os.environ["COOKIE_SECURE"] = "false"
