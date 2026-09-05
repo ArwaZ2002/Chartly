@@ -123,6 +123,18 @@ def test_chart_admin_can_delete_any_chart(client):
     )
 
 
+def test_analyst_cannot_delete_admin_created_chart(client):
+    analyst = login(client, "analyst@chartly.demo", "analyst-demo-123")
+    admin = login(client, "admin@chartly.demo", "admin-demo-123")
+    ds_id = _upload_dataset(client, analyst)
+    chart_id = _create_chart(client, admin, ds_id)
+
+    assert (
+        client.delete(f"/api/charts/{chart_id}", headers=auth_headers(analyst)).status_code
+        == 403
+    )
+
+
 def test_template_delete_only_creator_or_admin(client):
     analyst = login(client, "analyst@chartly.demo", "analyst-demo-123")
     analyst2 = login(client, "analyst2@chartly.demo", "analyst2-demo-123")
