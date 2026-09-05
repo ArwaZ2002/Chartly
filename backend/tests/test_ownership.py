@@ -3,6 +3,8 @@ creator or an admin."""
 
 from tests.conftest import auth_headers, login
 
+from app.models.models import Notification
+
 CSV_BYTES = b"category,value\na,1\nb,2\nc,3\n"
 SPEC = {
     "chart_type": "bar",
@@ -168,3 +170,57 @@ def test_viewer_cannot_delete_charts_or_templates(client):
         client.delete(f"/api/templates/{tpl['id']}", headers=auth_headers(viewer)).status_code
         == 403
     )
+
+
+def test_deleting_chart_removes_its_notifications(client, db):
+    analyst = login(client, "analyst@chartly.demo", "analyst-demo-123")
+    admin = login(client, "admin@chartly.demo", "admin-demo-123")
+    from app.models.models import User
+
+    admin_id = db.query(User).filter(User.email == "admin@chartly.demo").one().id
+    ds_id = _upload_dataset(client, analyst)
+    chart_id = _create_chart(client, analyst, ds_id)
+
+    db.add(Notification(
+        user_id=admin_id,
+        chart_id=chart_id,
+        actor_id=admin_id,
+        action="regenerate",
+        title="Delete cascade test",
+        is_read=0,
+    ))
+    db.commit()
+
+    assert (
+        client.delete(f"/api/charts/{chart_id}", headers=auth_headers(admin)).status_code
+        == 200
+    )
+    remaining = db.query(Notification).filter(Notification.chart_id == chart_id).count()
+    assert remaining == 0
+
+
+def test_deleting_dataset_cascades_chart_notifications(client, db):
+    analyst = login(client, "analyst@chartly.demo", "analyst-demo-123")
+    admin = login(client, "admin@chartly.demo", "admin-demo-123")
+    from app.models.models import User
+
+    admin_id = db.query(User).filter(User.email == "admin@chartly.demo").one().id
+    ds_id = _upload_dataset(client, analyst)
+    chart_id = _create_chart(client, analyst, ds_id)
+
+    db.add(Notification(
+        user_id=admin_id,
+        chart_id=chart_id,
+        actor_id=admin_id,
+        action="regenerate",
+        title="Dataset cascade test",
+        is_read=0,
+    ))
+    db.commit()
+
+    assert (
+        client.delete(f"/api/datasets/{ds_id}", headers=auth_headers(admin)).status_code
+        == 200
+    )
+    remaining = db.query(Notification).filter(Notification.chart_id == chart_id).count()
+    assert remaining == 0

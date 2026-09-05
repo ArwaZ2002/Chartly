@@ -66,6 +66,11 @@ class Chart(Base):
         order_by=lambda: (ChartVersion.created_at, ChartVersion.id),
     )
     audit_entries = relationship("AuditEntry", back_populates="chart", cascade="all, delete-orphan")
+    notifications = relationship(
+        "Notification",
+        back_populates="chart",
+        cascade="all, delete-orphan",
+    )
 
 
 class ChartVersion(Base):
@@ -135,7 +140,7 @@ class Notification(Base):
 
     recipient = relationship("User", foreign_keys=[user_id])
     actor = relationship("User", foreign_keys=[actor_id])
-    chart = relationship("Chart")
+    chart = relationship("Chart", back_populates="notifications")
 
 
 class Setting(Base):
