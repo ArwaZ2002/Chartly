@@ -242,6 +242,12 @@ def delete_dataset(
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
+    if user.role != "admin" and dataset.uploaded_by != user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the dataset owner or an admin can delete this dataset",
+        )
+
     if dataset.file_path and os.path.exists(dataset.file_path):
         os.remove(dataset.file_path)
 

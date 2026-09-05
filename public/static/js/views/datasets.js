@@ -87,7 +87,7 @@ export const uploadPage = {
             <div class="dataset-item-name">${App.escapeHtml(d.name)}</div>
             <div class="dataset-item-meta">${App.formatNumber(d.row_count)} rows · ${d.columns?.length || 0} cols · ${App.formatDate(d.uploaded_at)}</div>
           </div>
-          ${App.can('delete') ? `<button class="btn-icon danger delete-ds" data-id="${d.id}" title="Delete">${icon('trash', 15)}</button>` : ''}
+          ${App.canDelete(d.uploaded_by) ? `<button class="btn-icon danger delete-ds" data-id="${d.id}" title="Delete">${icon('trash', 15)}</button>` : ''}
         </div>`).join('');
 
       dsListEl.querySelectorAll('.dataset-item').forEach(item => {
@@ -343,7 +343,7 @@ export const projectDetailPage = {
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
               ${App.can('edit') ? `<button class="btn btn-secondary btn-sm" id="renameBtn">${icon('pencil', 14)} Rename</button>` : ''}
-              ${App.can('delete') ? `<button class="btn btn-danger btn-sm" id="deleteBtn">${icon('trash', 14)} Delete</button>` : ''}
+              ${App.canDelete(ds.uploaded_by) ? `<button class="btn btn-danger btn-sm" id="deleteBtn">${icon('trash', 14)} Delete</button>` : ''}
               ${App.can('create') ? `<a href="#charts/new?datasetId=${ds.id}" class="btn btn-primary btn-sm">${icon('plus', 14)} New Chart</a>` : ''}
             </div>
           </div>

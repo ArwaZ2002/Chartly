@@ -236,3 +236,34 @@ def test_deleting_dataset_cascades_chart_notifications(client, db):
     )
     remaining = db.query(Notification).filter(Notification.chart_id == chart_id).count()
     assert remaining == 0
+
+
+def test_dataset_delete_only_owner_or_admin(client):
+    analyst = login(client, "analyst@chartly.demo", "analyst-demo-123")
+    analyst2 = login(client, "analyst2@chartly.demo", "analyst2-demo-123")
+    admin = login(client, "admin@chartly.demo", "admin-demo-123")
+    ds_id = _upload_dataset(client, analyst)
+
+    assert (
+        client.delete(f"/api/datasets/{ds_id}", headers=auth_headers(analyst2)).status_code
+        == 403
+    )
+    assert (
+        client.delete(f"/api/datasets/{ds_id}", headers=auth_headers(analyst)).status_code
+        == 200
+    )
+
+
+def test_analyst_cannot_delete_admin_uploaded_dataset(client):
+    analyst = login(client, "analyst@chartly.demo", "analyst-demo-123")
+    admin = login(client, "admin@chartly.demo", "admin-demo-123")
+    ds_id = _upload_dataset(client, admin)
+
+    assert (
+        client.delete(f"/api/datasets/{ds_id}", headers=auth_headers(analyst)).status_code
+        == 403
+    )
+    assert (
+        client.delete(f"/api/datasets/{ds_id}", headers=auth_headers(admin)).status_code
+        == 200
+    )
