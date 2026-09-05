@@ -125,7 +125,7 @@ export const reviewPage = {
                 </div>
               </div>
               <button class="btn btn-secondary btn-sm" id="exportCodeBtn">${icon('code', 14)} Export Code</button>
-              ${App.can('delete') ? `<button class="btn btn-danger btn-sm" id="deleteChartBtn" title="Delete chart">${icon('trash', 14)}</button>` : ''}
+              ${App.canDelete(chart.created_by) ? `<button class="btn btn-danger btn-sm" id="deleteChartBtn" title="Delete chart">${icon('trash', 14)}</button>` : ''}
             </div>
           </div>
           <div class="chart-meta-chips">

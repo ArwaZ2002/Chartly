@@ -197,6 +197,10 @@ const App = {
     return role === 'analyst' && action !== 'admin';
   },
 
+  canDelete(ownerId) {
+    return this.can('delete') && (this.user?.role === 'admin' || this.user?.id === ownerId);
+  },
+
   async loadSettings() {
     try {
       this.settings = await api.apiFetch('/settings/');

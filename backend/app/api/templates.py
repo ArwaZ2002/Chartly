@@ -28,7 +28,7 @@ def create_template(
         name=request.name,
         chart_type=chart.specification["chart_type"],
         specification=chart.specification,
-        created_by="system",
+        created_by=user.id,
     )
     db.add(template)
     db.commit()
@@ -127,6 +127,12 @@ def delete_template(
     template = db.query(Template).filter(Template.id == template_id).first()
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
+
+    if user.role != "admin" and template.created_by != user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the template creator or an admin can delete this template",
+        )
 
     db.delete(template)
     db.commit()

@@ -54,7 +54,7 @@ export const templatesPage = {
             <small class="date">Created ${App.formatDate(t.created_at)}</small>
             <div class="chart-card-footer">
               ${App.can('create') ? `<button class="btn btn-primary btn-sm apply-template" data-id="${t.id}" style="flex:1;">${icon('sparkles', 13)} Use Template</button>` : ''}
-              ${App.can('delete') ? `<button class="btn btn-secondary btn-sm delete-template" data-id="${t.id}" title="Delete">${icon('trash', 14)}</button>` : ''}
+              ${App.canDelete(t.created_by) ? `<button class="btn btn-secondary btn-sm delete-template" data-id="${t.id}" title="Delete">${icon('trash', 14)}</button>` : ''}
             </div>
           </div>`;
       }).join('')}</div>`;

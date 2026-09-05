@@ -449,6 +449,12 @@ def delete_chart(
     if not chart:
         raise HTTPException(status_code=404, detail="Chart not found")
 
+    if user.role != "admin" and chart.created_by != user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the chart creator or an admin can delete this chart",
+        )
+
     db.delete(chart)
     db.commit()
     return {"message": "Chart deleted"}
