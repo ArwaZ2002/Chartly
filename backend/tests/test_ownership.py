@@ -60,6 +60,39 @@ def test_template_records_the_actual_creator(client):
     assert tpl["created_by"] == analyst_id
 
 
+def test_template_exposes_the_creator_name(client):
+    analyst = login(client, "analyst@chartly.demo", "analyst-demo-123")
+    me = client.get("/api/auth/me", headers=auth_headers(analyst))
+    assert me.status_code == 200
+    expected_name = me.json()["name"]
+
+    ds_id = _upload_dataset(client, analyst)
+    chart_id = _create_chart(client, analyst, ds_id)
+    tpl = _create_template(client, analyst, chart_id)
+    assert tpl["created_by_name"] == expected_name
+
+    listing = client.get("/api/templates/", headers=auth_headers(analyst))
+    assert listing.status_code == 200
+    found = next(t for t in listing.json() if t["id"] == tpl["id"])
+    assert found["created_by_name"] == expected_name
+
+
+def test_legacy_system_template_cannot_be_deleted_by_user(client):
+    analyst = login(client, "analyst@chartly.demo", "analyst-demo-123")
+    admin = login(client, "admin@chartly.demo", "admin-demo-123")
+
+    r = client.get("/api/templates/", headers=auth_headers(admin))
+    assert r.status_code == 200
+    system_tpl = next((t for t in r.json() if t["created_by"] == "system"), None)
+    if system_tpl is None:
+        return
+
+    assert (
+        client.delete(f"/api/templates/{system_tpl['id']}", headers=auth_headers(analyst)).status_code
+        == 403
+    )
+
+
 def test_chart_delete_only_creator_or_admin(client):
     analyst = login(client, "analyst@chartly.demo", "analyst-demo-123")
     analyst2 = login(client, "analyst2@chartly.demo", "analyst2-demo-123")

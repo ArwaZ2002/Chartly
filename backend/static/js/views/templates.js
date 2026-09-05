@@ -41,6 +41,7 @@ export const templatesPage = {
       listEl.innerHTML = `<div class="charts-grid">${list.map(t => {
         const spec = t.specification || {};
         const accent = chart.accent(t.chart_type);
+        const creator = App.escapeHtml(t.created_by_name || (t.created_by ? t.created_by.slice(0, 8) : 'Unknown'));
         return `
           <div class="chart-card">
             <div class="chart-card-head">
@@ -51,7 +52,7 @@ export const templatesPage = {
               <h3>${App.escapeHtml(t.name)}</h3>
               <p class="meta">${App.escapeHtml(spec.dimension || '—')} vs ${App.escapeHtml(spec.metric || '—')}</p>
             </div>
-            <small class="date">Created ${App.formatDate(t.created_at)}</small>
+            <small class="date">Created by <strong>${creator}</strong> · ${App.formatDate(t.created_at)}</small>
             <div class="chart-card-footer">
               ${App.can('create') ? `<button class="btn btn-primary btn-sm apply-template" data-id="${t.id}" style="flex:1;">${icon('sparkles', 13)} Use Template</button>` : ''}
               ${App.canDelete(t.created_by) ? `<button class="btn btn-secondary btn-sm delete-template" data-id="${t.id}" title="Delete">${icon('trash', 14)}</button>` : ''}

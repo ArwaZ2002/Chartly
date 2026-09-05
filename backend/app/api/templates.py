@@ -14,6 +14,28 @@ from app.api.auth import get_current_user, require_role
 router = APIRouter()
 
 
+def _name(template: Template, user_map: dict[str, User]) -> str | None:
+    """Resolve the display name of a template's creator, falling back to a
+    readable label for legacy rows that predate user-tracking."""
+    uid = template.created_by
+    if uid:
+        u = user_map.get(uid)
+        if u:
+            return u.name
+    if template.created_by == "system":
+        return "System"
+    if template.created_by:
+        return f"user-{template.created_by[:8]}"
+    return None
+
+
+def _load_user_map(db: Session, templates: list[Template]) -> dict[str, User]:
+    ids = {t.created_by for t in templates if t.created_by}
+    if not ids:
+        return {}
+    return {u.id: u for u in db.query(User).filter(User.id.in_(list(ids))).all()}
+
+
 @router.post("/", response_model=TemplateResponse)
 def create_template(
     request: TemplateCreateRequest,
@@ -40,6 +62,7 @@ def create_template(
         chart_type=template.chart_type,
         specification=template.specification,
         created_by=template.created_by,
+        created_by_name=_name(template, _load_user_map(db, [template])),
         created_at=template.created_at,
     )
 
@@ -57,6 +80,7 @@ def list_templates(
             Template.name.ilike(term) | Template.chart_type.ilike(term)
         )
     templates = query.order_by(Template.created_at.desc()).all()
+    user_map = _load_user_map(db, templates)
     return [
         TemplateResponse(
             id=t.id,
@@ -64,6 +88,7 @@ def list_templates(
             chart_type=t.chart_type,
             specification=t.specification,
             created_by=t.created_by,
+            created_by_name=_name(t, user_map),
             created_at=t.created_at,
         )
         for t in templates
@@ -114,6 +139,7 @@ def get_template(
         chart_type=template.chart_type,
         specification=template.specification,
         created_by=template.created_by,
+        created_by_name=_name(template, _load_user_map(db, [template])),
         created_at=template.created_at,
     )
 

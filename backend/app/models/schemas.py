@@ -121,6 +121,7 @@ class TemplateResponse(BaseModel):
     chart_type: str
     specification: ChartSpecification
     created_by: str
+    created_by_name: Optional[str] = None
     created_at: datetime
 
     class Config:
