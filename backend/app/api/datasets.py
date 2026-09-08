@@ -10,6 +10,12 @@ from app.models.models import Dataset, User
 from app.models.schemas import DatasetResponse, ColumnProfileResponse, DatasetUpdateRequest
 from app.services.data_io import parse_dataset_bytes, get_dataset_file
 from app.services.data_profiler import profile_dataset
+from app.services.notification_service import (
+    admin_and_analyst_ids,
+    create_notifications,
+    project_contributor_ids,
+    viewer_ids,
+)
 from app.api.auth import get_current_user, require_role
 
 logger = logging.getLogger(__name__)
@@ -150,6 +156,18 @@ async def upload_dataset(
         shared=int(shared or 0),
     )
     db.add(dataset)
+    db.flush()
+
+    # Notify the collaboration core (admins + analysts) so a new project is visible.
+    create_notifications(
+        db,
+        recipient_ids=admin_and_analyst_ids(db, exclude=user.id),
+        actor_id=user.id,
+        action="upload",
+        title=dataset.display_name or dataset.name,
+        dataset_id=dataset.id,
+    )
+
     db.commit()
     db.refresh(dataset)
 
@@ -203,7 +221,18 @@ def update_dataset(
                 status_code=403,
                 detail="Only the dataset owner or an admin can change sharing",
             )
+        newly_shared = int(request.shared) == 1 and not dataset.shared
         dataset.shared = int(request.shared)
+        if newly_shared:
+            db.flush()
+            create_notifications(
+                db,
+                recipient_ids=viewer_ids(db),
+                actor_id=user.id,
+                action="shared",
+                title=dataset.display_name or dataset.name,
+                dataset_id=dataset.id,
+            )
     db.commit()
     db.refresh(dataset)
     return _to_response(dataset)
@@ -225,6 +254,17 @@ def toggle_share(
             detail="Only the dataset owner or an admin can change sharing",
         )
     dataset.shared = 0 if dataset.shared else 1
+    newly_shared = dataset.shared == 1
+    db.flush()
+    if newly_shared:
+        create_notifications(
+            db,
+            recipient_ids=viewer_ids(db),
+            actor_id=user.id,
+            action="shared",
+            title=dataset.display_name or dataset.name,
+            dataset_id=dataset.id,
+        )
     db.commit()
     db.refresh(dataset)
     return _to_response(dataset)
@@ -240,6 +280,15 @@ def close_project(
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
     dataset.status = "closed"
+    db.flush()
+    create_notifications(
+        db,
+        recipient_ids=project_contributor_ids(db, dataset.id),
+        actor_id=user.id,
+        action="close",
+        title=dataset.display_name or dataset.name,
+        dataset_id=dataset.id,
+    )
     db.commit()
     db.refresh(dataset)
     return _to_response(dataset)
@@ -255,6 +304,15 @@ def reopen_project(
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
     dataset.status = "open"
+    db.flush()
+    create_notifications(
+        db,
+        recipient_ids=project_contributor_ids(db, dataset.id),
+        actor_id=user.id,
+        action="reopen",
+        title=dataset.display_name or dataset.name,
+        dataset_id=dataset.id,
+    )
     db.commit()
     db.refresh(dataset)
     return _to_response(dataset)
@@ -308,6 +366,12 @@ def delete_dataset(
 
     if dataset.file_path and os.path.exists(dataset.file_path):
         os.remove(dataset.file_path)
+
+    # Project-scoped notifications (upload/shared/close/reopen) reference the
+    # dataset directly; chart-scoped ones are removed by the chart ORM cascade.
+    from app.models.models import Notification
+
+    db.query(Notification).filter(Notification.dataset_id == dataset.id).delete(synchronize_session=False)
 
     db.delete(dataset)
     db.commit()

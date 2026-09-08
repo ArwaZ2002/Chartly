@@ -135,9 +135,12 @@ class Notification(Base):
 
     id = Column(String, primary_key=True, default=generate_uuid)
     user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
-    chart_id = Column(String, ForeignKey("charts.id"), nullable=False, index=True)
+    # Chart-scoped events (regenerate/restore/create) set chart_id;
+    # project-scoped events (upload/shared/close/reopen) set dataset_id.
+    chart_id = Column(String, ForeignKey("charts.id"), nullable=True, index=True)
+    dataset_id = Column(String, ForeignKey("datasets.id"), nullable=True, index=True)
     actor_id = Column(String, ForeignKey("users.id"), nullable=False)
-    action = Column(String, nullable=False)  # regenerate, restore
+    action = Column(String, nullable=False)  # regenerate, restore, create, upload, shared, close, reopen
     title = Column(String, nullable=False)
     is_read = Column(Integer, nullable=False, default=0, index=True)  # 0=unread, 1=read (SQLite friendly)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)

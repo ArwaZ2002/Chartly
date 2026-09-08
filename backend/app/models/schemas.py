@@ -171,7 +171,8 @@ class AuditEntryResponse(BaseModel):
 # Notifications
 class NotificationResponse(BaseModel):
     id: str
-    chart_id: str
+    chart_id: Optional[str] = None
+    dataset_id: Optional[str] = None
     chart_title: Optional[str] = None
     actor_id: str
     actor_name: str

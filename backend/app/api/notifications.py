@@ -41,6 +41,7 @@ def _to_response(n: Notification, actor_name: str, chart_title: str | None) -> N
     return NotificationResponse(
         id=n.id,
         chart_id=n.chart_id,
+        dataset_id=n.dataset_id,
         chart_title=chart_title or n.title,
         actor_id=n.actor_id,
         actor_name=actor_name,
@@ -79,7 +80,7 @@ def list_notifications(
 
     # Batch load actors and charts for titles
     actor_ids = {n.actor_id for n in notifs}
-    chart_ids = {n.chart_id for n in notifs}
+    chart_ids = {n.chart_id for n in notifs if n.chart_id}
     actors = {u.id: u for u in db.query(User).filter(User.id.in_(list(actor_ids))).all()} if actor_ids else {}
     charts = {c.id: c for c in db.query(Chart).filter(Chart.id.in_(list(chart_ids))).all()} if chart_ids else {}
 

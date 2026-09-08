@@ -5,7 +5,7 @@ import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.models.models import Dataset, Chart, ChartVersion, AuditEntry, User, Notification
+from app.models.models import Dataset, Chart, ChartVersion, AuditEntry, User
 from app.models.schemas import (
     ChartGenerateRequest,
     ChartResponse,
@@ -15,6 +15,7 @@ from app.services.chart_generator import generate_chart, chart_to_html
 from app.services.data_io import get_dataset_file, parse_dataset_bytes
 from app.services.data_profiler import recommend_chart_type
 from app.services.spec_validation import validate_specification
+from app.services.notification_service import create_notifications
 from app.api.auth import get_current_user, require_role
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ def _create_edit_notifications(db: Session, chart: Chart, actor_id: str, action:
 
     - Collect prior contributors from Chart.created_by + all ChartVersion.created_by
     - Legacy fallback: supplement with AuditEntry user_ids where action in create/regenerate/restore
-    - Keep up to 100 per user (oldest beyond 100 deleted after commit via purge in notifications API, but also trimmed here)
+    - Keep up to 100 per user (oldest beyond 100 deleted after commit via purge in notifications API)
     - Do not notify self.
     - Title snapshot stored.
     """
@@ -49,28 +50,17 @@ def _create_edit_notifications(db: Session, chart: Chart, actor_id: str, action:
                         prior_ids.add(a.user_id)
             except Exception:
                 pass
-        prior_ids.discard(actor_id)
-        prior_ids.discard(None)
-        if not prior_ids:
-            return
-        # Verify recipients still exist
-        existing = {u.id for u in db.query(User).filter(User.id.in_(list(prior_ids))).all()} if prior_ids else set()
-        recipients = prior_ids & existing
-        if not recipients:
-            return
+
         notif_title = title or (chart.specification or {}).get("title") or "Untitled Chart"
-        for rid in recipients:
-            db.add(Notification(
-                user_id=rid,
-                chart_id=chart.id,
-                actor_id=actor_id,
-                action=action,
-                title=notif_title,
-                is_read=0,
-            ))
-        # Note: cap at 100 and 30-day purge handled lazily in notifications API,
-        # but we also keep DB not bloated if user never visits notifications page:
-        # No immediate purge here to avoid extra queries in hot path.
+        create_notifications(
+            db,
+            recipient_ids=prior_ids,
+            actor_id=actor_id,
+            action=action,
+            title=notif_title,
+            chart_id=chart.id,
+            dataset_id=chart.dataset_id,
+        )
     except Exception:
         logger.exception("Failed to create edit notifications for chart %s", getattr(chart, "id", "?"))
 
@@ -282,6 +272,17 @@ def generate_chart_endpoint(
         specification=spec_dict,
     )
     db.add(audit)
+
+    # Let the project owner know new content was added to their project.
+    create_notifications(
+        db,
+        recipient_ids={dataset.uploaded_by},
+        actor_id=user.id,
+        action="create",
+        title=spec_dict.get("title"),
+        chart_id=chart.id,
+        dataset_id=dataset.id,
+    )
 
     db.commit()
     db.refresh(chart)

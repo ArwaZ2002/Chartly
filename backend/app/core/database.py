@@ -95,6 +95,60 @@ def _migrate_notifications():
         _logging.getLogger(__name__).exception("Notifications migration skipped")
 
 
+def _migrate_notifications_project_columns():
+    """Extend notifications for project-scoped events (idempotent).
+
+    Adds notifications.dataset_id and drops the NOT NULL on notifications.chart_id
+    so project events (upload/shared/close/reopen) can be stored without a chart.
+    Postgres: plain ALTER. SQLite: table rebuild (SQLite cannot drop NOT NULL).
+    """
+    from sqlalchemy import text as _text
+
+    is_sqlite = DATABASE_URL.startswith("sqlite")
+    try:
+        with engine.begin() as conn:
+            if is_sqlite:
+                rows = conn.execute(_text("PRAGMA table_info(notifications)")).fetchall()
+                cols = {r[1] for r in rows}
+                if cols and "dataset_id" not in cols:
+                    conn.execute(_text("""
+                        CREATE TABLE notifications_new (
+                            id VARCHAR NOT NULL PRIMARY KEY,
+                            user_id VARCHAR NOT NULL,
+                            chart_id VARCHAR,
+                            dataset_id VARCHAR,
+                            actor_id VARCHAR NOT NULL,
+                            action VARCHAR NOT NULL,
+                            title VARCHAR NOT NULL,
+                            is_read INTEGER NOT NULL,
+                            created_at DATETIME
+                        )
+                    """))
+                    conn.execute(_text("""
+                        INSERT INTO notifications_new
+                            (id, user_id, chart_id, dataset_id, actor_id, action, title, is_read, created_at)
+                        SELECT id, user_id, chart_id, NULL, actor_id, action, title, is_read, created_at
+                        FROM notifications
+                    """))
+                    conn.execute(_text("DROP TABLE notifications"))
+                    conn.execute(_text("ALTER TABLE notifications_new RENAME TO notifications"))
+                for name, column in (
+                    ("ix_notifications_user_id", "user_id"),
+                    ("ix_notifications_chart_id", "chart_id"),
+                    ("ix_notifications_dataset_id", "dataset_id"),
+                    ("ix_notifications_is_read", "is_read"),
+                    ("ix_notifications_created_at", "created_at"),
+                ):
+                    conn.execute(_text(f"CREATE INDEX IF NOT EXISTS {name} ON notifications ({column})"))
+            else:
+                conn.execute(_text("ALTER TABLE notifications ADD COLUMN IF NOT EXISTS dataset_id VARCHAR"))
+                conn.execute(_text("ALTER TABLE notifications ALTER COLUMN chart_id DROP NOT NULL"))
+                conn.execute(_text("CREATE INDEX IF NOT EXISTS ix_notifications_dataset_id ON notifications (dataset_id)"))
+    except Exception:
+        import logging as _logging
+        _logging.getLogger(__name__).exception("Notifications project columns migration skipped")
+
+
 def _migrate_datasets_project_columns():
     """Add datasets.shared and datasets.status (idempotent), backfilling
     existing rows so viewer access is preserved (shared=1, status='open')."""
@@ -136,4 +190,5 @@ def init_db():
     Base.metadata.create_all(bind=engine)
     _migrate_add_chart_audit_columns()
     _migrate_notifications()
+    _migrate_notifications_project_columns()
     _migrate_datasets_project_columns()

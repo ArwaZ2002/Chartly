@@ -194,6 +194,10 @@ def test_cors_credentials_configuration(client):
 
 
 def test_production_mode():
+    # pytest's fd capture (used when no terminal) can end up closing the
+    # devnull descriptor cached by subprocess.Popen, so re-opening it here
+    # avoids a stale-handle "WinError 6" when the subprocess is spawned.
+    subprocess.Popen._devnull = None
     result = subprocess.run(
         [sys.executable, str(PROD_SCRIPT)],
         capture_output=True,

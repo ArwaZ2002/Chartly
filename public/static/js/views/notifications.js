@@ -45,31 +45,51 @@ export const notificationsPage = {
         App.refreshNotifCount();
 
         if (notifs.length === 0) {
-          listEl.innerHTML = App.emptyState('bell', 'No notifications', 'When another user edits your charts (regenerate or restore), you’ll see it here.');
+          listEl.innerHTML = App.emptyState('bell', 'No notifications', 'When a project is shared, closed, reopened, or someone edits your charts, you’ll see it here.');
           return;
         }
+
+        const actionIcon = (action) => ({
+          regenerate: 'refresh', restore: 'refresh', create: 'chart',
+          upload: 'upload', shared: 'share', close: 'lock', reopen: 'unlock',
+        }[action] || 'bell');
+        const actionLine = (n) => {
+          const actor = `<strong>${App.escapeHtml(n.actor_name || 'Someone')}</strong>`;
+          const name = `<strong>${App.escapeHtml(n.chart_title || 'Untitled')}</strong>`;
+          switch (n.action) {
+            case 'restore': return `${actor} restored your chart ${name}`;
+            case 'regenerate': return `${actor} regenerated your chart ${name}`;
+            case 'create': return `${actor} created a chart in your project ${name}`;
+            case 'upload': return `${actor} uploaded a new project ${name}`;
+            case 'shared': return `${actor} shared ${name} with you`;
+            case 'close': return `${actor} closed the project ${name}`;
+            case 'reopen': return `${actor} reopened the project ${name}`;
+            default: return `${actor} ${App.escapeHtml(n.action)} ${name}`;
+          }
+        };
+        const targetUrl = (n) => (n.dataset_id && !n.chart_id ? `#charts/project/${n.dataset_id}` : `#charts/${n.chart_id}`);
 
         listEl.innerHTML = `
           <div class="notif-list">
             ${notifs.map(n => {
               const isUnread = !n.is_read;
-              const actionLabel = n.action === 'restore' ? 'restored' : 'regenerated';
               const time = App.formatDateTime(n.created_at);
               const ago = App.formatDate(n.created_at);
+              const isProject = n.dataset_id && !n.chart_id;
               return `
                 <div class="notif-item ${isUnread ? 'unread' : ''}" data-id="${n.id}">
-                  <div class="notif-item-icon ${isUnread ? 'unread' : ''}">${icon('bell', 16)}</div>
+                  <div class="notif-item-icon ${isUnread ? 'unread' : ''}">${icon(actionIcon(n.action), 16)}</div>
                   <div class="notif-item-main">
-                    <div class="notif-item-text">
-                      <strong>${App.escapeHtml(n.actor_name || 'Someone')}</strong> ${actionLabel} your chart <strong>${App.escapeHtml(n.chart_title || 'Untitled Chart')}</strong>
-                    </div>
+                    <div class="notif-item-text">${actionLine(n)}</div>
                     <div class="notif-item-meta">
-                      <span>${App.escapeHtml(n.action)}</span> · <a href="#charts/${n.chart_id}" class="notif-link">${App.escapeHtml(n.chart_id.slice(0,8))}…</a> · ${App.escapeHtml(time)} · ${App.escapeHtml(ago)}
+                      <span>${App.escapeHtml(n.action)}</span> · ${isProject
+                        ? `<a href="#charts/project/${n.dataset_id}" class="notif-link">View project</a>`
+                        : `<a href="#charts/${n.chart_id}" class="notif-link">${App.escapeHtml((n.chart_id || '').slice(0, 8))}…</a>`} · ${App.escapeHtml(time)} · ${App.escapeHtml(ago)}
                     </div>
                   </div>
                   <div class="notif-item-actions">
                     ${isUnread ? `<button class="btn btn-secondary btn-sm mark-read" data-id="${n.id}">${icon('check',13)} Mark read</button>` : `<span class="badge green">${icon('check',12)} Read</span>`}
-                    <a href="#charts/${n.chart_id}" class="btn btn-ghost btn-sm" title="View chart">${icon('eye',14)}</a>
+                    <a href="${targetUrl(n)}" class="btn btn-ghost btn-sm" title="View">${icon('eye',14)}</a>
                   </div>
                 </div>
               `;
