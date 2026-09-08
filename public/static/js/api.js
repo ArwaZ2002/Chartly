@@ -8,8 +8,20 @@
 
 const API_BASE = '/api';
 
+function loadStoredUser() {
+  try {
+    const raw = localStorage.getItem('chartly_user');
+    if (raw === null || raw === 'null') return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (_) {
+    localStorage.removeItem('chartly_user');
+    return null;
+  }
+}
+
 export const api = {
-  user: JSON.parse(localStorage.getItem('chartly_user') || 'null'),
+  user: loadStoredUser(),
 
   async apiFetch(path, options = {}) {
     const headers = { ...(options.headers || {}) };
