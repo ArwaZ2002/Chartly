@@ -54,6 +54,9 @@ def list_theme_templates(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    # Theme templates are not shared with viewers.
+    if user.role not in ("admin", "analyst"):
+        return []
     templates = db.query(ThemeTemplate).order_by(ThemeTemplate.created_at.desc()).all()
     return [
         ThemeTemplateResponse(
@@ -77,6 +80,12 @@ def delete_theme_template(
     template = db.query(ThemeTemplate).filter(ThemeTemplate.id == template_id).first()
     if not template:
         raise HTTPException(status_code=404, detail="Theme template not found")
+
+    if user.role != "admin" and template.created_by != user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the template creator or an admin can delete this template",
+        )
 
     db.delete(template)
     db.commit()

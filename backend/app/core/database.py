@@ -95,7 +95,45 @@ def _migrate_notifications():
         _logging.getLogger(__name__).exception("Notifications migration skipped")
 
 
+def _migrate_datasets_project_columns():
+    """Add datasets.shared and datasets.status (idempotent), backfilling
+    existing rows so viewer access is preserved (shared=1, status='open')."""
+    from sqlalchemy import text as _text
+
+    is_sqlite = DATABASE_URL.startswith("sqlite")
+    try:
+        with engine.begin() as conn:
+            if is_sqlite:
+                def _col_names(table: str) -> set[str]:
+                    rows = conn.execute(_text(f"PRAGMA table_info({table})")).fetchall()
+                    return {r[1] for r in rows}
+                try:
+                    cols = _col_names("datasets")
+                except Exception:
+                    cols = set()
+                if cols:
+                    if "shared" not in cols:
+                        conn.execute(_text("ALTER TABLE datasets ADD COLUMN shared INTEGER DEFAULT 0"))
+                    if "status" not in cols:
+                        conn.execute(_text("ALTER TABLE datasets ADD COLUMN status VARCHAR DEFAULT 'open'"))
+            else:
+                conn.execute(_text("ALTER TABLE datasets ADD COLUMN IF NOT EXISTS shared INTEGER DEFAULT 0"))
+                conn.execute(_text("ALTER TABLE datasets ADD COLUMN IF NOT EXISTS status VARCHAR DEFAULT 'open'"))
+
+            # Backfill: any existing rows without an explicit value become shared/open.
+            if is_sqlite:
+                conn.execute(_text("UPDATE datasets SET shared = 1 WHERE shared IS NULL"))
+                conn.execute(_text("UPDATE datasets SET status = 'open' WHERE status IS NULL"))
+            else:
+                conn.execute(_text("UPDATE datasets SET shared = 1 WHERE shared IS NULL"))
+                conn.execute(_text("UPDATE datasets SET status = 'open' WHERE status IS NULL"))
+    except Exception:
+        import logging as _logging
+        _logging.getLogger(__name__).exception("Datasets project columns migration skipped")
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
     _migrate_add_chart_audit_columns()
     _migrate_notifications()
+    _migrate_datasets_project_columns()

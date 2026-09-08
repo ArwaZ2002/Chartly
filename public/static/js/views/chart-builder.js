@@ -307,19 +307,20 @@ export const chartBuilderPage = {
     try {
       const data = await api.apiFetch('/datasets/');
       datasets = Array.isArray(data) ? data : [];
-      datasetSelect.innerHTML = datasets.length
-        ? datasets.map(d => `<option value="${d.id}">${App.escapeHtml(d.name)}</option>`).join('')
+      const usable = App.user?.role === 'admin' ? datasets : datasets.filter(d => d.status !== 'closed');
+      datasetSelect.innerHTML = usable.length
+        ? usable.map(d => `<option value="${d.id}">${App.escapeHtml(d.name)}${d.status === 'closed' ? ' (Closed)' : ''}</option>`).join('')
         : '<option value="">No datasets found</option>';
 
       const presetDsId = params.get('datasetId') || (preset && preset.dataset_id ? preset.dataset_id : '');
-      if (presetDsId && datasets.some(d => d.id === presetDsId)) {
+      if (presetDsId && usable.some(d => d.id === presetDsId)) {
         datasetSelect.value = presetDsId;
         populateColumns(datasets.find(d => d.id === presetDsId));
         loadRecommendations(presetDsId);
-      } else if (datasets.length > 0) {
-        datasetSelect.value = datasets[0].id;
-        populateColumns(datasets[0]);
-        loadRecommendations(datasets[0].id);
+      } else if (usable.length > 0) {
+        datasetSelect.value = usable[0].id;
+        populateColumns(usable[0]);
+        loadRecommendations(usable[0].id);
       }
 
       if (preset) {

@@ -36,6 +36,11 @@ export const uploadPage = {
         <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" hidden>
       </div>
 
+      <div style="display:flex; align-items:center; gap:8px; margin-top:12px;">
+        <input type="checkbox" id="shareCheckbox" style="accent-color:var(--orange);">
+        <label for="shareCheckbox" style="font-size:13px; color:var(--text-secondary);">Share this project with viewers</label>
+      </div>
+
       <div id="uploadProgress" style="display:none; padding:14px 16px; margin-bottom:20px;" class="card">
         <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:600;">
           <span id="progressFileName">file.csv</span>
@@ -84,10 +89,10 @@ export const uploadPage = {
         <div class="dataset-item ${d.id === selectedId ? 'selected' : ''}" data-id="${d.id}">
           <div class="dataset-item-icon">${icon('file', 16)}</div>
           <div class="dataset-item-info">
-            <div class="dataset-item-name">${App.escapeHtml(d.name)}</div>
+            <div class="dataset-item-name">${App.escapeHtml(d.name)} ${d.status === 'closed' ? `<span class="badge gray">${icon('lock', 10)} Closed</span>` : ''}</div>
             <div class="dataset-item-meta">${App.formatNumber(d.row_count)} rows · ${d.columns?.length || 0} cols · ${App.formatDate(d.uploaded_at)}</div>
           </div>
-          ${App.canDelete(d.uploaded_by) ? `<button class="btn-icon danger delete-ds" data-id="${d.id}" title="Delete">${icon('trash', 15)}</button>` : ''}
+          ${(App.canDelete(d.uploaded_by) && (d.status !== 'closed' || App.user?.role === 'admin')) ? `<button class="btn-icon danger delete-ds" data-id="${d.id}" title="Delete">${icon('trash', 15)}</button>` : ''}
         </div>`).join('');
 
       dsListEl.querySelectorAll('.dataset-item').forEach(item => {
@@ -130,8 +135,8 @@ export const uploadPage = {
               </div>
             </div>
             <div style="display:flex; gap:8px;">
-              ${App.can('edit') ? `<button class="btn btn-secondary btn-sm" id="renameBtn">${icon('pencil', 14)} Rename</button>` : ''}
-              ${App.can('create') ? `<a href="#charts/new?datasetId=${ds.id}" class="btn btn-primary btn-sm">${icon('plus', 14)} Create Chart</a>` : ''}
+              ${App.can('edit') && (ds.status !== 'closed' || App.user?.role === 'admin') ? `<button class="btn btn-secondary btn-sm" id="renameBtn">${icon('pencil', 14)} Rename</button>` : ''}
+              ${(App.can('create') && (ds.status !== 'closed' || App.user?.role === 'admin')) ? `<a href="#charts/new?datasetId=${ds.id}" class="btn btn-primary btn-sm">${icon('plus', 14)} Create Chart</a>` : ''}
             </div>
           </div>
           <div class="dataset-stat-row">
@@ -212,6 +217,7 @@ export const uploadPage = {
       try {
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('shared', document.getElementById('shareCheckbox').checked ? 1 : 0);
         const data = await api.apiFetch('/datasets/upload', { method: 'POST', body: formData, headers: {} });
         clearInterval(fakeInterval);
         bar.style.width = '100%';
@@ -286,7 +292,11 @@ export const projectsPage = {
           <a href="#charts/project/${ds.id}" class="project-card">
             <div style="display:flex; align-items:center; justify-content:space-between;">
               <div class="chart-card-icon indigo" style="background:var(--indigo-soft);color:var(--indigo);">${icon('file', 17)}</div>
-              <span class="badge ${count > 0 ? 'orange' : 'slate'}">${count} chart${count !== 1 ? 's' : ''}</span>
+              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+                ${ds.status === 'closed' ? `<span class="badge gray" title="Closed — read-only">${icon('lock', 11)} Closed</span>` : ''}
+                ${ds.shared ? `<span class="badge green" title="Visible to viewers">${icon('share', 11)} Shared</span>` : ''}
+                <span class="badge ${count > 0 ? 'orange' : 'slate'}">${count} chart${count !== 1 ? 's' : ''}</span>
+              </div>
             </div>
             <div>
               <h3 style="font-size:14.5px; font-weight:700;">${App.escapeHtml(ds.display_name || ds.name)}</h3>
@@ -332,26 +342,29 @@ export const projectDetailPage = {
       const dsCharts = chartList.filter(c => c.dataset_id === datasetId);
 
       contentEl.innerHTML = `
+        ${ds.status === 'closed' ? '<div class="alert alert-warn" style="margin-bottom:16px;">' + icon('lock', 15) + ' <span>This project is closed and is read-only. Only admins can make changes.</span></div>' : ''}
         <div class="card" style="padding:22px; margin-bottom:20px;">
           <div class="chart-detail-head">
-            <div style="display:flex; gap:12px; align-items:center;">
+            <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
               <div class="chart-card-icon indigo" style="background:var(--indigo-soft);color:var(--indigo);">${icon('file', 18)}</div>
               <div>
                 <h2 style="font-size:18px; font-weight:800;">${App.escapeHtml(ds.display_name || ds.name)}</h2>
-                <p class="subtitle" style="font-size:12.5px;">${App.formatNumber(ds.row_count)} rows · ${ds.columns?.length || 0} columns · ${dsCharts.length} chart${dsCharts.length !== 1 ? 's' : ''}</p>
+                <p class="subtitle" style="font-size:12.5px;">${App.formatNumber(ds.row_count)} rows · ${ds.columns?.length || 0} columns · ${dsCharts.length} chart${dsCharts.length !== 1 ? 's' : ''} · ${ds.status === 'closed' ? 'Closed' : 'Open'}</p>
               </div>
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
-              ${App.can('edit') ? `<button class="btn btn-secondary btn-sm" id="renameBtn">${icon('pencil', 14)} Rename</button>` : ''}
-              ${App.canDelete(ds.uploaded_by) ? `<button class="btn btn-danger btn-sm" id="deleteBtn">${icon('trash', 14)} Delete</button>` : ''}
-              ${App.can('create') ? `<a href="#charts/new?datasetId=${ds.id}" class="btn btn-primary btn-sm">${icon('plus', 14)} New Chart</a>` : ''}
+              ${(App.can('edit') && (ds.status !== 'closed' || App.user?.role === 'admin')) ? `<button class="btn btn-secondary btn-sm" id="renameBtn">${icon('pencil', 14)} Rename</button>` : ''}
+              ${(App.canDelete(ds.uploaded_by) && (ds.status !== 'closed' || App.user?.role === 'admin')) ? `<button class="btn btn-danger btn-sm" id="deleteBtn">${icon('trash', 14)} Delete</button>` : ''}
+              ${App.can('admin') ? `<button class="btn btn-secondary btn-sm" id="closeBtn">${ds.status === 'closed' ? `${icon('refresh', 14)} Reopen` : `${icon('lock', 14)} Close Project`}</button>` : ''}
+              ${(App.canDelete(ds.uploaded_by) && (ds.status !== 'closed' || App.user?.role === 'admin')) ? `<button class="btn btn-secondary btn-sm" id="shareBtn">${ds.shared ? `${icon('eye', 14)} Unshare` : `${icon('share', 14)} Share`}</button>` : ''}
+              ${(App.can('create') && (ds.status !== 'closed' || App.user?.role === 'admin')) ? `<a href="#charts/new?datasetId=${ds.id}" class="btn btn-primary btn-sm">${icon('plus', 14)} New Chart</a>` : ''}
             </div>
           </div>
         </div>
         <div class="section-title">Charts <span class="badge slate">${dsCharts.length}</span></div>
         <div class="charts-grid" id="projectCharts">
           ${dsCharts.length === 0
-            ? App.emptyState('chart', 'No charts yet', 'Create your first chart with this dataset.', `${App.can('create') ? `<a href="#charts/new?datasetId=${ds.id}" class="btn btn-primary">${icon('plus', 15)} Create Chart</a>` : ''}`)
+            ? App.emptyState('chart', 'No charts yet', 'Create your first chart with this dataset.', `${(App.can('create') && (ds.status !== 'closed' || App.user?.role === 'admin')) ? `<a href="#charts/new?datasetId=${ds.id}" class="btn btn-primary">${icon('plus', 15)} Create Chart</a>` : ''}`)
             : dsCharts.map(c => {
                 const spec = c.specification || {};
                 const accent = App.chartAccent(spec.chart_type);
@@ -404,6 +417,39 @@ export const projectDetailPage = {
             await api.apiFetch(`/datasets/${datasetId}`, { method: 'DELETE' });
             location.hash = '#charts';
             App.toast('Project deleted', 'info');
+          } catch (err) { App.toast(err.message, 'error'); }
+        });
+      }
+
+      const closeBtn = document.getElementById('closeBtn');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', async () => {
+          const closing = ds.status !== 'closed';
+          const ok = await App.confirmDialog({
+            title: closing ? 'Close project?' : 'Reopen project?',
+            message: closing
+              ? `"${ds.display_name || ds.name}" will become read-only. No one but admins can generate, regenerate, restore, or delete charts.`
+              : `"${ds.display_name || ds.name}" will be reopened and editable again.`,
+            confirmText: closing ? 'Close' : 'Reopen',
+            danger: closing,
+          });
+          if (!ok) return;
+          try {
+            await api.apiFetch(`/datasets/${datasetId}/${ds.status === 'closed' ? 'reopen' : 'close'}`, { method: 'POST' });
+            App.toast(closing ? 'Project closed' : 'Project reopened');
+            location.reload();
+          } catch (err) { App.toast(err.message, 'error'); }
+        });
+      }
+
+      const shareBtn = document.getElementById('shareBtn');
+      if (shareBtn) {
+        shareBtn.addEventListener('click', async () => {
+          try {
+            const updated = await api.apiFetch(`/datasets/${datasetId}/toggle-share`, { method: 'POST' });
+            ds.shared = updated.shared;
+            App.toast(ds.shared ? 'Shared with viewers' : 'No longer shared with viewers');
+            location.reload();
           } catch (err) { App.toast(err.message, 'error'); }
         });
       }

@@ -73,6 +73,9 @@ def list_templates(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    # Templates are not shared with viewers.
+    if user.role not in ("admin", "analyst"):
+        return []
     query = db.query(Template)
     if search:
         term = f"%{search.strip().lower()}%"
@@ -131,6 +134,8 @@ def get_template(
 ):
     template = db.query(Template).filter(Template.id == template_id).first()
     if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    if user.role not in ("admin", "analyst"):
         raise HTTPException(status_code=404, detail="Template not found")
 
     return TemplateResponse(

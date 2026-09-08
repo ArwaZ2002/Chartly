@@ -40,6 +40,10 @@ class Dataset(Base):
     row_count = Column(Integer, nullable=False)
     uploaded_at = Column(DateTime, default=datetime.utcnow)
     uploaded_by = Column(String, ForeignKey("users.id"), nullable=False)
+    # When shared=1, viewers can see this project and all its charts.
+    shared = Column(Integer, nullable=False, default=0, index=True)
+    # Project lifecycle: "open" (default) or "closed" (read-only, admin only).
+    status = Column(String, nullable=False, default="open")
 
     uploader = relationship("User", back_populates="datasets")
     charts = relationship("Chart", back_populates="dataset", cascade="all, delete-orphan")

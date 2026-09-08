@@ -95,6 +95,20 @@ def load_dataset_df(db: Session, dataset_id: str) -> tuple[Dataset, pd.DataFrame
     return dataset, df
 
 
+def _can_view_dataset(dataset: Dataset, user: User) -> bool:
+    if user.role in ("admin", "analyst"):
+        return True
+    return bool(dataset.shared)
+
+
+def _require_project_open(dataset: Dataset, user: User) -> None:
+    if dataset.status == "closed" and user.role != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="This project is closed and is read-only",
+        )
+
+
 def build_response(chart: Chart, db: Session) -> ChartResponse:
     versions = chart.versions or []
     # --- collect user ids for creator / updater / version creators ---
@@ -229,6 +243,7 @@ def generate_chart_endpoint(
     user: User = Depends(require_role("admin", "analyst")),
 ):
     dataset, df = load_dataset_df(db, request.dataset_id)
+    _require_project_open(dataset, user)
 
     spec_dict = request.specification.model_dump()
     error = validate_specification(dataset.columns_profile, spec_dict)
@@ -283,6 +298,8 @@ def get_recommendations(
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
+    if not _can_view_dataset(dataset, user):
+        raise HTTPException(status_code=404, detail="Dataset not found")
 
     recommendations = recommend_chart_type(dataset.columns_profile)
     return [ChartRecommendation(**r) for r in recommendations]
@@ -297,6 +314,8 @@ def list_charts(
     query = db.query(Chart)
     if dataset_id:
         query = query.filter(Chart.dataset_id == dataset_id)
+    if user.role not in ("admin", "analyst"):
+        query = query.join(Dataset, Chart.dataset_id == Dataset.id).filter(Dataset.shared == 1)
     charts = query.order_by(Chart.created_at.desc()).all()
 
     return [build_response(c, db) for c in charts]
@@ -311,6 +330,10 @@ def render_chart(
 ):
     chart = db.query(Chart).filter(Chart.id == chart_id).first()
     if not chart:
+        raise HTTPException(status_code=404, detail="Chart not found")
+
+    dataset = db.query(Dataset).filter(Dataset.id == chart.dataset_id).first()
+    if not _can_view_dataset(dataset, user):
         raise HTTPException(status_code=404, detail="Chart not found")
 
     spec = chart.specification
@@ -348,6 +371,15 @@ def restore_chart_version(
     chart = db.query(Chart).filter(Chart.id == chart_id).first()
     if not chart:
         raise HTTPException(status_code=404, detail="Chart not found")
+
+    dataset = db.query(Dataset).filter(Dataset.id == chart.dataset_id).first()
+    _require_project_open(dataset, user)
+
+    if user.role != "admin" and chart.created_by != user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the chart creator or an admin can restore this chart",
+        )
 
     version = (
         db.query(ChartVersion)
@@ -395,6 +427,15 @@ def regenerate_chart(
     chart = db.query(Chart).filter(Chart.id == chart_id).first()
     if not chart:
         raise HTTPException(status_code=404, detail="Chart not found")
+
+    if user.role != "admin" and chart.created_by != user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the chart creator or an admin can regenerate this chart",
+        )
+
+    chart_dataset = db.query(Dataset).filter(Dataset.id == chart.dataset_id).first()
+    _require_project_open(chart_dataset, user)
 
     dataset, df = load_dataset_df(db, request.dataset_id)
 
@@ -448,6 +489,9 @@ def delete_chart(
     chart = db.query(Chart).filter(Chart.id == chart_id).first()
     if not chart:
         raise HTTPException(status_code=404, detail="Chart not found")
+
+    dataset = db.query(Dataset).filter(Dataset.id == chart.dataset_id).first()
+    _require_project_open(dataset, user)
 
     if user.role != "admin" and chart.created_by != user.id:
         raise HTTPException(

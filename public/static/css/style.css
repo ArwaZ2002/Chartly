@@ -480,6 +480,7 @@ h1, h2, h3, h4 { line-height: 1.25; }
 .badge.purple { background: var(--purple-soft); color: var(--purple); }
 .badge.slate { background: var(--bg); color: var(--text-secondary); }
 .badge.red { background: var(--red-soft); color: var(--red); }
+  .badge.gray { background: var(--bg); color: var(--text-muted); }
 
 /* ============ Tables ============ */
 .table-wrap { overflow-x: auto; max-width: 100%; }

@@ -51,9 +51,16 @@ class DatasetResponse(BaseModel):
     row_count: int
     uploaded_at: datetime
     uploaded_by: str
+    shared: int = 0
+    status: str = "open"
 
     class Config:
         from_attributes = True
+
+
+class DatasetUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    shared: Optional[int] = None
 
 
 # Chart Specification

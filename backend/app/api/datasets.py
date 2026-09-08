@@ -2,13 +2,12 @@ import logging
 import os
 
 import pandas as pd
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.config import get_settings
 from app.models.models import Dataset, User
-from app.models.schemas import DatasetResponse, ColumnProfileResponse
+from app.models.schemas import DatasetResponse, ColumnProfileResponse, DatasetUpdateRequest
 from app.services.data_io import parse_dataset_bytes, get_dataset_file
 from app.services.data_profiler import profile_dataset
 from app.api.auth import get_current_user, require_role
@@ -17,6 +16,37 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 settings = get_settings()
+
+
+def _to_response(d: Dataset) -> DatasetResponse:
+    return DatasetResponse(
+        id=d.id,
+        name=d.name,
+        display_name=d.display_name,
+        file_name=d.file_name,
+        columns=[ColumnProfileResponse(**c) for c in d.columns_profile],
+        row_count=d.row_count,
+        uploaded_at=d.uploaded_at,
+        uploaded_by=d.uploaded_by,
+        shared=int(d.shared or 0),
+        status=d.status or "open",
+    )
+
+
+def _can_view_dataset(dataset: Dataset, user: User) -> bool:
+    """Viewers may only see shared projects. Analysts/admins see everything."""
+    if user.role in ("admin", "analyst"):
+        return True
+    return bool(dataset.shared)
+
+
+def _require_project_open(dataset: Dataset, user: User) -> None:
+    """Closed projects are frozen for everyone except admins."""
+    if dataset.status == "closed" and user.role != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="This project is closed and is read-only",
+        )
 
 # Lenient MIME allowlist per extension. application/octet-stream and an
 # empty/missing content type are always accepted because browsers often
@@ -81,6 +111,7 @@ def _coerce_numeric_columns(df: pd.DataFrame) -> pd.DataFrame:
 @router.post("/upload", response_model=DatasetResponse)
 async def upload_dataset(
     file: UploadFile = File(...),
+    shared: int = Form(0),
     db: Session = Depends(get_db),
     user: User = Depends(require_role("admin", "analyst")),
 ):
@@ -116,21 +147,13 @@ async def upload_dataset(
         columns_profile=columns,
         row_count=len(df),
         uploaded_by=user.id,
+        shared=int(shared or 0),
     )
     db.add(dataset)
     db.commit()
     db.refresh(dataset)
 
-    return DatasetResponse(
-        id=dataset.id,
-        name=dataset.name,
-        display_name=dataset.display_name,
-        file_name=dataset.file_name,
-        columns=[ColumnProfileResponse(**c) for c in columns],
-        row_count=dataset.row_count,
-        uploaded_at=dataset.uploaded_at,
-        uploaded_by=dataset.uploaded_by,
-    )
+    return _to_response(dataset)
 
 
 @router.get("/", response_model=list[DatasetResponse])
@@ -138,20 +161,11 @@ def list_datasets(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    datasets = db.query(Dataset).order_by(Dataset.uploaded_at.desc()).all()
-    return [
-        DatasetResponse(
-            id=d.id,
-            name=d.name,
-            display_name=d.display_name,
-            file_name=d.file_name,
-            columns=[ColumnProfileResponse(**c) for c in d.columns_profile],
-            row_count=d.row_count,
-            uploaded_at=d.uploaded_at,
-            uploaded_by=d.uploaded_by,
-        )
-        for d in datasets
-    ]
+    query = db.query(Dataset)
+    if user.role not in ("admin", "analyst"):
+        query = query.filter(Dataset.shared == 1)
+    datasets = query.order_by(Dataset.uploaded_at.desc()).all()
+    return [_to_response(d) for d in datasets]
 
 
 @router.get("/{dataset_id}", response_model=DatasetResponse)
@@ -163,46 +177,87 @@ def get_dataset(
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
-
-    return DatasetResponse(
-        id=dataset.id,
-        name=dataset.name,
-        display_name=dataset.display_name,
-        file_name=dataset.file_name,
-        columns=[ColumnProfileResponse(**c) for c in dataset.columns_profile],
-        row_count=dataset.row_count,
-        uploaded_at=dataset.uploaded_at,
-        uploaded_by=dataset.uploaded_by,
-    )
-
-
-class RenameRequest(BaseModel):
-    name: str
+    if not _can_view_dataset(dataset, user):
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    return _to_response(dataset)
 
 
 @router.patch("/{dataset_id}", response_model=DatasetResponse)
-def rename_dataset(
+def update_dataset(
     dataset_id: str,
-    request: RenameRequest,
+    request: DatasetUpdateRequest,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("admin", "analyst")),
 ):
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    dataset.display_name = request.name
+    _require_project_open(dataset, user)
+
+    if request.name is not None:
+        dataset.display_name = request.name
+    if request.shared is not None:
+        # Only the owner or an admin may toggle sharing.
+        if user.role != "admin" and dataset.uploaded_by != user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="Only the dataset owner or an admin can change sharing",
+            )
+        dataset.shared = int(request.shared)
     db.commit()
     db.refresh(dataset)
-    return DatasetResponse(
-        id=dataset.id,
-        name=dataset.name,
-        display_name=dataset.display_name,
-        file_name=dataset.file_name,
-        columns=[ColumnProfileResponse(**c) for c in dataset.columns_profile],
-        row_count=dataset.row_count,
-        uploaded_at=dataset.uploaded_at,
-        uploaded_by=dataset.uploaded_by,
-    )
+    return _to_response(dataset)
+
+
+@router.post("/{dataset_id}/toggle-share", response_model=DatasetResponse)
+def toggle_share(
+    dataset_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("admin", "analyst")),
+):
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    _require_project_open(dataset, user)
+    if user.role != "admin" and dataset.uploaded_by != user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the dataset owner or an admin can change sharing",
+        )
+    dataset.shared = 0 if dataset.shared else 1
+    db.commit()
+    db.refresh(dataset)
+    return _to_response(dataset)
+
+
+@router.post("/{dataset_id}/close", response_model=DatasetResponse)
+def close_project(
+    dataset_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    dataset.status = "closed"
+    db.commit()
+    db.refresh(dataset)
+    return _to_response(dataset)
+
+
+@router.post("/{dataset_id}/reopen", response_model=DatasetResponse)
+def reopen_project(
+    dataset_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    dataset.status = "open"
+    db.commit()
+    db.refresh(dataset)
+    return _to_response(dataset)
 
 
 @router.get("/{dataset_id}/preview")
@@ -213,6 +268,8 @@ def preview_dataset(
 ):
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    if not _can_view_dataset(dataset, user):
         raise HTTPException(status_code=404, detail="Dataset not found")
 
     try:
@@ -241,6 +298,7 @@ def delete_dataset(
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
+    _require_project_open(dataset, user)
 
     if user.role != "admin" and dataset.uploaded_by != user.id:
         raise HTTPException(

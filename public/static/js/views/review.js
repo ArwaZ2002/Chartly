@@ -30,6 +30,7 @@ export const reviewPage = {
       if (!chart) throw new Error('Chart not found');
       const spec = chart.specification || {};
       const ds = (Array.isArray(datasets) ? datasets : []).find(d => d.id === chart.dataset_id);
+      const canEditChart = App.canDelete(chart.created_by) && (ds?.status !== 'closed' || App.user?.role === 'admin');
       const plotlyCode = chartUtil.generateCode(spec, chart.dataset_id);
 
       const versions = chart.versions || [];
@@ -82,7 +83,7 @@ export const reviewPage = {
                 ${isCurrent
                   ? `<span class="badge green">${icon('check', 12)} Current</span>`
                   : `<button class="btn btn-secondary btn-sm preview-version" data-ver="${v.id}" data-title="${App.escapeHtml(vs.title || `Version ${i + 1}`)}">${icon('eye', 13)} Preview</button>
-                     ${App.can('edit') ? `<button class="btn btn-secondary btn-sm restore-version" data-ver="${v.id}">${icon('refresh', 13)} Restore</button>` : ''}`}
+                     ${canEditChart ? `<button class="btn btn-secondary btn-sm restore-version" data-ver="${v.id}">${icon('refresh', 13)} Restore</button>` : ''}`}
               </div>
             </div>`;
           }).join('');
@@ -94,6 +95,7 @@ export const reviewPage = {
         ? `${ds ? App.escapeHtml(ds.name) : 'Dataset removed'} · Created by <strong>${creatorLabel}</strong> ${App.formatDate(chart.created_at)} · Edited by <strong>${editorLabel}</strong> ${App.formatDate(chart.updated_at)}`
         : `${ds ? App.escapeHtml(ds.name) : 'Dataset removed'} · Created by <strong>${creatorLabel}</strong> ${App.formatDate(chart.created_at)}`;
       document.getElementById('chartDetail').innerHTML = `
+        ${ds && ds.status === 'closed' && App.user?.role !== 'admin' ? '<div class="alert alert-warn" style="margin-bottom:16px;">' + icon('lock', 15) + ' <span>This project is closed and is read-only. Only admins can make changes.</span></div>' : ''}
         <div class="card" style="padding:22px; margin-bottom:20px;">
           <div class="chart-detail-head">
             <div>
@@ -101,8 +103,8 @@ export const reviewPage = {
               <p class="subtitle" style="font-size:12.5px;">${subtitleHtml}</p>
             </div>
             <div class="page-header-actions">
-              ${App.can('edit') ? `<button class="btn btn-secondary btn-sm" id="editChartBtn">${icon('pencil', 14)} Edit Chart</button>` : ''}
-              ${App.can('edit') ? `              <button class="btn btn-secondary btn-sm" id="saveTemplateBtn">${icon('template', 14)} Save as Template</button>` : ''}
+              ${canEditChart ? `<button class="btn btn-secondary btn-sm" id="editChartBtn">${icon('pencil', 14)} Edit Chart</button>` : ''}
+              ${canEditChart ? `              <button class="btn btn-secondary btn-sm" id="saveTemplateBtn">${icon('template', 14)} Save as Template</button>` : ''}
               <div class="download-dropdown" id="downloadDropdown">
                 <button class="btn btn-secondary btn-sm" id="downloadToggleBtn">${icon('download', 13)} Download</button>
                 <div class="download-dropdown-panel" id="downloadPanel">
@@ -125,7 +127,7 @@ export const reviewPage = {
                 </div>
               </div>
               <button class="btn btn-secondary btn-sm" id="exportCodeBtn">${icon('code', 14)} Export Code</button>
-              ${App.canDelete(chart.created_by) ? `<button class="btn btn-danger btn-sm" id="deleteChartBtn" title="Delete chart">${icon('trash', 14)}</button>` : ''}
+              ${(App.canDelete(chart.created_by) && (ds?.status !== 'closed' || App.user?.role === 'admin')) ? `<button class="btn btn-danger btn-sm" id="deleteChartBtn" title="Delete chart">${icon('trash', 14)}</button>` : ''}
             </div>
           </div>
           <div class="chart-meta-chips">

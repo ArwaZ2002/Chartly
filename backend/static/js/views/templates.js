@@ -91,6 +91,11 @@ export const templatesPage = {
         location.hash = '#upload';
         return;
       }
+      const usable = App.user?.role === 'admin' ? datasets : datasets.filter(d => d.status !== 'closed');
+      if (usable.length === 0) {
+        App.toast('No open projects available to apply this template', 'warn');
+        return;
+      }
       const overlay = document.createElement('div');
       overlay.className = 'modal-overlay';
       overlay.innerHTML = `
@@ -100,7 +105,7 @@ export const templatesPage = {
           <div class="form-group" style="margin-bottom:16px;">
             <label class="form-label">Dataset</label>
             <select class="form-select" id="applyDataset">
-              ${datasets.map(d => `<option value="${d.id}">${App.escapeHtml(d.name)}</option>`).join('')}
+              ${usable.map(d => `<option value="${d.id}">${App.escapeHtml(d.name)}</option>`).join('')}
             </select>
           </div>
           <div class="modal-actions">
@@ -236,7 +241,7 @@ export const templatesPage = {
           </div>
           <div style="display:flex; gap:8px;">
             ${App.can('create') ? `<button class="btn btn-primary btn-sm use-theme" data-id="${t.id}">${icon('sparkles', 13)} Use in Builder</button>` : ''}
-            ${App.can('delete') ? `<button class="btn btn-secondary btn-sm delete-theme" data-id="${t.id}" title="Delete">${icon('trash', 14)}</button>` : ''}
+            ${App.canDelete(t.created_by) ? `<button class="btn btn-secondary btn-sm delete-theme" data-id="${t.id}" title="Delete">${icon('trash', 14)}</button>` : ''}
           </div>
         </div>`).join('');
 
