@@ -1,0 +1,357 @@
+=============================================================
+PROJECT REPORTS FEATURE - IMPLEMENTATION PLAN
+Chartly MVP
+=============================================================
+
+SUMMARY
+-------
+Add a "Reports" feature: users select existing charts, get per-chart
+AI analysis via Grok, assemble into a full markdown report, edit
+manually, improve with AI, and export as PDF with embedded chart
+images. Uses a fixed, professional default PDF layout; custom report templates can be added as a future feature.
+
+AI Provider: Grok (xAI API, OpenAI-compatible at api.x.ai)
+Markdown Editor: marked.js from CDN
+PDF Charts: kaleido for Plotly chart -> PNG rendering
+
+
+=============================================================
+1. DEPENDENCIES (backend/requirements.txt)
+=============================================================
+
+Add to existing requirements.txt:
+
+  openai>=1.0.0        # Grok API (OpenAI-compatible at api.x.ai)
+  fpdf2>=2.7.0         # PDF generation (Unicode support)
+  markdown>=3.5        # Markdown to HTML for PDF
+  kaleido>=0.2.1       # Plotly chart -> PNG image for PDF embedding
+
+
+=============================================================
+2. CONFIG (backend/app/core/config.py)
+=============================================================
+
+Add to Settings class:
+
+  XAI_API_KEY: str = ""                    # Grok API key from env
+  XAI_API_BASE: str = "https://api.x.ai/v1"  # API base URL
+  XAI_MODEL: str = "grok-2-1212"           # Default Grok model
+
+
+=============================================================
+3. DATABASE MODELS (backend/app/models/models.py)
+=============================================================
+
+NEW TABLE: reports
+  id              String PK (UUID)
+  title           String         Report title
+  content         Text           Markdown content
+  chart_ids       JSON           List of chart ID strings
+  created_by      String FK->users  Author
+  created_at      DateTime
+  updated_at      DateTime
+
+MODIFY User model: add "reports" back-population relationship.
+
+
+=============================================================
+4. PYDANTIC SCHEMAS (backend/app/models/schemas.py)
+=============================================================
+
+  ReportCreate           - title, content?, chart_ids?, template_id?
+  ReportUpdate           - title?, content?, chart_ids?, template_id?
+  ReportResponse         - all fields + author_name, template_name
+  AIGenerateChartRequest - chart_id (single chart analysis)
+  AIGenerateReportRequest - title, chart_ids, instructions?
+  AIImproveRequest       - content, instructions?
+  AIChartAnalysisResponse - chart_id, analysis (markdown text)
+
+
+=============================================================
+5. AI SERVICE (backend/app/services/ai_service.py)
+=============================================================
+
+Uses openai SDK with base_url="https://api.x.ai/v1".
+
+FUNCTION 1: analyze_single_chart(chart_title, chart_type, data_summary) -> str
+
+  Uses this exact prompt:
+
+  "You are a professional data analyst. Analyze the following chart
+  based only on the provided data.
+
+  Chart title: {chart_title}
+  Chart type: {chart_type}
+  Data summary: {data_summary}
+
+  Provide:
+  1. Key observation
+  2. Important trend
+  3. Anomaly or notable pattern
+  4. Business interpretation
+
+  Keep the explanation concise and factual. Do not invent information
+  that is not supported by the data."
+
+  data_summary construction:
+    - Chart spec: dimension, metric, aggregation, chart_type, title
+    - Dataset profile: column names, types, row_count
+    - Pandas stats: df[dimension].value_counts().head(10),
+                    df[metric].describe() for numeric
+
+
+FUNCTION 2: generate_full_report(title, chart_analyses, instructions?) -> str
+
+  Prompt:
+  "You are a professional data analyst writing a project report.
+  Below are analyses of individual charts from the project. Combine
+  them into a cohesive, well-structured report in markdown format.
+
+  Report title: {title}
+  {optional instructions}
+
+  Chart analyses:
+  {each analysis with chart title as subheading}
+
+  Write:
+  1. Executive summary (2-3 sentences)
+  2. For each chart: include the analysis with a section heading
+  3. Overall trends and patterns across all charts
+  4. Key recommendations
+
+  Use markdown formatting with proper headings, bullet points,
+  and emphasis."
+
+
+FUNCTION 3: improve_report_content(existing_content, instructions?) -> str
+
+  Prompt:
+  "Improve the following report content. Make it more professional,
+  fix grammar, improve clarity, and ensure data-driven language.
+
+  {instructions if provided}
+
+  Current content:
+  {existing_content}"
+
+
+=============================================================
+6. PDF GENERATOR (backend/app/services/report_pdf_generator.py)
+=============================================================
+
+Uses fpdf2, markdown, plotly.io.to_image() (kaleido backend).
+
+FUNCTION: generate_report_pdf(report, charts_data) -> bytes
+
+  Flow:
+  1. Parse markdown content -> HTML via
+     markdown.markdown(content, extensions=['tables', 'fenced_code'])
+  2. For each chart in chart_ids:
+     - Load chart spec + dataset
+     - Generate Plotly JSON via generate_chart(df, spec)
+     - Convert to PNG via pio.to_image(fig, format="png",
+       width=1200, height=600, scale=2)
+  3. Build PDF with fpdf2 using a fixed, professional default report layout:
+     - Cover page: title, author name, date, accent line
+     - Content: pdf.write_html(html_content) for markdown HTML
+     - Chart images: pdf.image(png_bytes) directly after their relevant analysis section
+     - Consistent headers/footers, margins, typography, spacing, and page numbering
+  4. Return PDF as bytes
+
+
+=============================================================
+7. API ROUTES
+=============================================================
+
+--- backend/app/api/reports.py ---
+
+  POST   /api/reports/                 Create report           (analyst+)
+  GET    /api/reports/                 List all reports        (any)
+  GET    /api/reports/{id}             Get report              (any)
+  PUT    /api/reports/{id}             Update report           (analyst+)
+  DELETE /api/reports/{id}             Delete report           (analyst+ or author)
+  POST   /api/reports/{id}/export      Download PDF            (any)
+  POST   /api/reports/ai/analyze-chart Per-chart analysis      (analyst+)
+  POST   /api/reports/ai/generate      Full report from analyses (analyst+)
+  POST   /api/reports/ai/improve       Improve content         (analyst+)
+
+  /ai/analyze-chart:
+    Accepts { chart_id }
+    Loads chart + dataset, builds data_summary
+    Calls analyze_single_chart()
+    Returns { chart_id, analysis }
+
+  /ai/generate:
+    Accepts { title, chart_ids, instructions? }
+    Loops through chart_ids calling analyze_single_chart() for each
+    Then calls generate_full_report() with all analyses
+    Returns { title, content (markdown), analyses: [{chart_id, analysis}] }
+
+  /ai/improve:
+    Accepts { content, instructions? }
+    Calls improve_report_content()
+    Returns { content }
+
+  /export:
+    Loads report, renders all charts
+    Calls generate_report_pdf()
+    Returns Response(pdf_bytes, media_type="application/pdf",
+      headers={"Content-Disposition": f'attachment; filename="{report.title}.pdf"'})
+
+
+=============================================================
+8. FRONTEND COMPONENTS
+=============================================================
+
+--- public/static/js/components/markdown-editor.js ---
+
+  Exports markdownEditor(containerId):
+    - Toolbar: Bold, Italic, Heading (H1-H3), Bulleted List,
+               Numbered List, Link, Quote, Code Block
+    - Textarea: styled, monospace font
+    - Preview panel: renders markdown via marked.parse() (CDN)
+    - Tab toggle: Edit | Preview
+    - Methods: getContent(), setContent(md), clear()
+
+
+--- public/static/js/views/reports.js ---
+
+  reportsPage (hash: #reports):
+    - Card grid showing all reports
+    - Each card: title, date, author, chart count badge
+    - "New Report" button -> #reports/new
+    - Empty state when no reports
+
+  reportEditorPage (hash: #reports/new, #reports/:id):
+    Layout (two columns on desktop, stacked on mobile):
+
+    Left column:
+      - Title input
+       - Markdown editor (toolbar + textarea + preview)
+      - Chart selector panel:
+        - Checkbox list of all user's charts
+        - Each shows: chart title, type badge, dataset name
+        - Select All / Deselect All buttons
+      - Save button
+
+    Right column:
+      AI Panel:
+        - "Analyze Selected Charts" button -> calls /ai/analyze-chart
+        - "Generate Full Report" button -> calls /ai/generate, fills editor
+        - "AI Improve" section: textarea + "Improve" button -> /ai/improve
+      Export Panel:
+        - "Export as PDF" button -> calls /export, triggers download
+      Live preview of markdown content
+
+
+=============================================================
+9. NAVIGATION
+=============================================================
+
+--- public/static/js/components/sidebar.js ---
+
+  Add after Templates in nav array:
+    { key: 'reports', label: 'Reports', icon: 'file' }
+
+  Visible to all roles (reports are shared).
+
+
+--- public/static/js/app.js ---
+
+  Import:
+    import { reportsPage, reportEditorPage } from './views/reports.js';
+
+  Register:
+    router.registerPage(reportsPage);
+    router.registerPage(reportEditorPage);
+
+
+=============================================================
+10. CSP & CDN
+=============================================================
+
+--- public/index.html + backend/main.py INDEX_HTML ---
+
+  Add before </head>:
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+--- CSP in main.py SecurityMiddleware ---
+
+  Update script-src:
+    script-src 'self' https://cdn.plot.ly https://cdn.jsdelivr.net 'unsafe-inline';
+
+
+=============================================================
+11. CSS (public/static/css/style.css)
+=============================================================
+
+~150 lines of new styles:
+
+  .reports-page          page container
+  .reports-grid          responsive CSS grid (auto-fill, minmax(300px, 1fr))
+  .report-card           card with border, shadow, hover lift effect
+  .report-card-title     bold, truncated
+  .report-card-meta      date, author, chart count
+  .report-editor         two-column grid layout
+  .editor-panel          left column
+  .side-panel            right column
+  .toolbar               flex row of icon buttons
+  .editor-textarea       full width, monospace, min-height 400px
+  .markdown-preview      styled HTML output
+  .chart-selector        scrollable max-height container with checkboxes
+  .chart-selector-item   flex row with checkbox + chart info
+  .ai-panel              bordered section with action buttons
+  .ai-btn                styled button (sparkles icon, gradient)
+  .template-select       styled dropdown
+  .export-btn            prominent download button
+  .tab-toggle            Edit/Preview tab switcher
+
+
+=============================================================
+12. FILE SUMMARY
+=============================================================
+
+  NEW FILES:
+    backend/app/api/reports.py
+    backend/app/services/ai_service.py
+    backend/app/services/report_pdf_generator.py
+    public/static/js/views/reports.js
+    public/static/js/components/markdown-editor.js
+
+  MODIFIED FILES:
+    backend/app/models/models.py
+    backend/app/models/schemas.py
+    backend/app/api/__init__.py
+    backend/app/core/config.py
+    backend/main.py
+    backend/requirements.txt
+    public/static/js/app.js
+    public/static/js/components/sidebar.js
+    public/static/css/style.css
+    public/index.html
+
+  Total: 5 new files, 8 modified files, ~650-850 lines of new code
+
+
+=============================================================
+13. IMPLEMENTATION ORDER
+=============================================================
+
+  1.  requirements.txt + config.py (dependencies + env vars)
+  2.  models.py + schemas.py (data layer)
+  3.  ai_service.py (Grok integration with exact prompts)
+  4.  report_pdf_generator.py (PDF rendering)
+  5.  reports.py + report_templates.py (API routes)
+  6.  __init__.py (register routers)
+  7.  main.py (seed templates + CSP update)
+  8.  public/index.html (marked.js CDN)
+  9.  markdown-editor.js (editor component)
+  10. reports.js (views)
+  11. sidebar.js + app.js (navigation)
+  12. style.css (styling)
+  13. Test end-to-end
+
+
+=============================================================
+END OF PLAN
+=============================================================
